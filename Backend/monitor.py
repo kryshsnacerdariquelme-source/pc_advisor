@@ -9,8 +9,8 @@ from diagnostico import analizar
 from guia_solucion import obtener_guia
 from notificaciones import notificar
 
-INTERVALO_RAPIDO = 3          # CPU y RAM: se consultan en cada ciclo
-CICLOS_PARA_TEMPERATURA = 3   # temperatura: cada 3 ciclos (~9s), es mas lenta de consultar
+INTERVALO_RAPIDO = 3          
+CICLOS_PARA_TEMPERATURA = 3   
 
 
 def _powershell(comando, timeout=6):
@@ -27,12 +27,40 @@ def _powershell(comando, timeout=6):
         return ""
 
 
+def _temperatura_hardware_monitor():
+    """MSAcpi_ThermalZoneTemperature (el metodo 'nativo' de Windows) no
+    funciona en gran parte de los equipos, sobre todo notebooks, porque el
+    fabricante no expone el sensor por ahi. LibreHardwareMonitor (y su
+    antecesor OpenHardwareMonitor) sí leen el sensor real del CPU y lo
+    publican en su propio namespace WMI mientras el programa esta abierto
+    en segundo plano. Se intenta primero por ser mas confiable; requiere
+    tener LibreHardwareMonitor corriendo (gratis, no requiere instalacion)."""
+    for namespace in ("root/LibreHardwareMonitor", "root/OpenHardwareMonitor"):
+        salida = _powershell(f'''
+try {{
+    Get-CimInstance -Namespace {namespace} -ClassName Sensor -ErrorAction Stop |
+    Where-Object {{ $_.SensorType -eq "Temperature" -and $_.Name -match "CPU" }} |
+    Select-Object -First 1 -ExpandProperty Value
+}} catch {{ }}
+''')
+        try:
+            valor = float(salida.strip())
+            if 0 < valor <= 130:
+                return valor
+        except Exception:
+            continue
+    return None
+
+
 def obtener_temperatura():
-    """Primero intenta con psutil (funciona en algunos equipos/Linux).
-    Si no hay nada, en Windows recurre a MSAcpi_ThermalZoneTemperature
-    (WMI), que suele detectar la temperatura del CPU cuando psutil no
-    puede. Si ninguna funciona, devuelve 0 (se muestra 'No disponible',
-    nunca se inventa un valor)."""
+    """Intenta varias fuentes de mas a menos confiable:
+    1) psutil (funciona en algunos equipos/Linux).
+    2) LibreHardwareMonitor / OpenHardwareMonitor via WMI (si el usuario
+       los tiene abiertos), que leen el sensor real del CPU.
+    3) MSAcpi_ThermalZoneTemperature (WMI nativo de Windows), que en la
+       practica falla en muchos equipos pero se deja como ultimo intento.
+    Si ninguna funciona, devuelve 0 (se muestra 'No disponible', nunca se
+    inventa un valor)."""
     try:
         for grupo, sensores in psutil.sensors_temperatures().items():
             for s in sensores:
@@ -45,6 +73,10 @@ def obtener_temperatura():
 
     if platform.system() != "Windows":
         return 0.0
+
+    valor_hwmonitor = _temperatura_hardware_monitor()
+    if valor_hwmonitor is not None:
+        return valor_hwmonitor
 
     salida = _powershell(r'''
 try {
@@ -70,6 +102,9 @@ def mostrar_estado(cpu, ram, temperatura, diagnosticos):
     print(f"CPU:           {cpu:.1f}%")
     print(f"RAM:           {ram:.1f}%")
     print(f"Temperatura:   {'No disponible' if not temperatura else f'{temperatura:.1f} C'}")
+    if not temperatura and platform.system() == "Windows":
+        print("               (Tip: abre LibreHardwareMonitor en segundo plano")
+        print("                para que se pueda leer el sensor real del CPU)")
 
     if not diagnosticos:
         print("\nTodo funciona con normalidad. No hay alertas nuevas.")

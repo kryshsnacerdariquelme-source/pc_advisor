@@ -21,6 +21,16 @@ GUIAS = {
         "Si usas el equipo sobre la cama o un cojín, cámbialo a una superficie dura.",
         "Deja que el equipo descanse unos minutos si el ventilador suena muy fuerte.",
     ],
+    "configuracion_plan_energia": [
+        "Abre el menú de inicio y busca 'Editar plan de energía' (o 'Opciones de energía').",
+        "Cambia el plan activo a 'Equilibrado' o 'Alto rendimiento' en vez de 'Ahorro de energía'.",
+        "Si usas un notebook enchufado la mayor parte del tiempo, este cambio no afecta mucho la batería.",
+    ],
+    "capacidad_futura_ram": [
+        "Por ahora no es una alerta urgente, es una proyección: tu uso promedio viene subiendo con el tiempo.",
+        "Revisa si últimamente instalaste programas nuevos que quedan abiertos en segundo plano.",
+        "Si la tendencia sigue, considera ampliar la RAM del equipo antes de que se vuelva un problema constante.",
+    ],
 }
 
 

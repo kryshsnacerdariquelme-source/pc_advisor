@@ -20,7 +20,7 @@ except ImportError:
     pass
 
 crear_tabla()
-st.set_page_config(page_title="PC Advisor", page_icon="💻", layout="wide")
+st.set_page_config(page_title="PC Advisor", page_icon="", layout="wide")
 
 st.markdown("""
 <style>
@@ -268,9 +268,9 @@ def vista_guia():
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-pagina_resumen = st.Page(vista_resumen, title="Resumen", icon="🏠", default=True)
-pagina_historial = st.Page(vista_historial, title="Historial", icon="🗂️")
-pagina_guia = st.Page(vista_guia, title="Guía solución", icon="✅")
+pagina_resumen = st.Page(vista_resumen, title="Resumen", icon="", default=True)
+pagina_historial = st.Page(vista_historial, title="Historial", icon="")
+pagina_guia = st.Page(vista_guia, title="Guía solución", icon="")
 
 pg = st.navigation([pagina_resumen, pagina_historial, pagina_guia])
 with st.sidebar:

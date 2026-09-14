@@ -1,37 +1,54 @@
+import json
 import platform
 import time
+from pathlib import Path
+
+import psutil
 
 from database import crear_tabla, guardar_lectura, guardar_recomendacion
 from diagnostico import analizar
 from guia_solucion import obtener_guia
-from hardware import obtener_cpu, obtener_ram, obtener_disco, obtener_temperatura, obtener_gpu
+from hardware import obtener_estado_hardware
 from notificaciones import notificar
 
-INTERVALO_RAPIDO = 3          # CPU, RAM y disco: se consultan en cada ciclo
-CICLOS_PARA_TEMPERATURA = 3   # temperatura y GPU: cada 3 ciclos (~9s), son mas lentas de consultar
+# Lectura viva: una vez por segundo.
+INTERVALO_VIVO = 1.0
+# SQLite queda como historial y no bloquea el dashboard.
+INTERVALO_HISTORIAL = 60.0
+MAX_HISTORIAL_VIVO = 60  # 60 puntos = 1 minuto de gráficas en tiempo real
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+ESTADO_PATH = BASE_DIR / "data" / "estado_actual.json"
+ESTADO_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
-def mostrar_estado(cpu, ram, temperatura, disco, gpu, diagnosticos):
-    print("\n" + "=" * 50)
-    print("             PC ADVISOR")
-    print("=" * 50)
-    print(f"CPU:           {cpu:.1f}%")
-    print(f"RAM:           {ram:.1f}%")
-    print(f"Disco:         {disco:.1f}%")
-    print(f"Temperatura:   {'No disponible' if not temperatura else f'{temperatura:.1f} C'}")
-    if not temperatura and platform.system() == "Windows":
-        print("               (Tip: abre LibreHardwareMonitor en segundo plano")
-        print("                para que se pueda leer el sensor real del CPU)")
-    print(f"GPU:           {'No disponible' if gpu is None else f'{gpu:.1f}%'}")
+def publicar_estado(estado: dict):
+    """Escribe el estado actual de forma atomica para que Streamlit nunca
+    lea un JSON a medio escribir."""
+    temporal = ESTADO_PATH.with_suffix(".tmp")
+    temporal.write_text(json.dumps(estado, ensure_ascii=False), encoding="utf-8")
+    temporal.replace(ESTADO_PATH)
 
-    if not diagnosticos:
-        print("\nTodo funciona con normalidad. No hay alertas nuevas.")
-    else:
+
+def mostrar_estado(estado, diagnosticos):
+    print("\n" + "=" * 60)
+    print("                     PC ADVISOR")
+    print("=" * 60)
+    print(f"CPU:             {estado['cpu']:.1f}%")
+    print(f"Temperatura CPU: {estado['temperatura_cpu']:.1f} C" if estado['temperatura_cpu'] else "Temperatura CPU: No disponible")
+    print(f"RAM:             {estado['ram']:.1f}%")
+    print(f"GPU:             {estado['gpu']:.1f}%" if estado['gpu'] is not None else "GPU:             No disponible")
+    print(f"GPU:             {estado['gpu_nombre']}")
+    print(f"Temperatura GPU: {estado['temperatura_gpu']:.1f} C" if estado['temperatura_gpu'] else "Temperatura GPU: No disponible")
+    print(f"VRAM:            {estado['temperatura_vram']:.1f} C" if estado['temperatura_vram'] else "Temperatura VRAM: No disponible")
+    print("Discos:")
+    for disco in estado.get("discos", []):
+        print(f"  {disco['unidad']} -> {disco['uso']:.1f}% ({disco['usado_gb']:.1f}/{disco['total_gb']:.1f} GB)")
+    if diagnosticos:
         print("\nALERTAS NUEVAS")
-        print("-" * 50)
         for d in diagnosticos:
             print(f"- {d['mensaje']}")
-    print("=" * 50)
+    print("=" * 60)
 
 
 def procesar_diagnosticos(diagnosticos):
@@ -40,35 +57,63 @@ def procesar_diagnosticos(diagnosticos):
         if guardar_recomendacion(d["tipo"], d["mensaje"], guia):
             notificar("PC Advisor", d["mensaje"])
             print(f"\n>> Nueva alerta guardada en el historial: {d['tipo']}")
-            print(f">> Guia de solucion:\n{guia}")
 
 
 def main():
     crear_tabla()
+    # "Prime" de psutil: con interval=None, la primera llamada no tiene con
+    # qué comparar y devuelve un valor sin sentido. Se descarta antes de
+    # empezar el loop real.
+    psutil.cpu_percent(interval=None)
     print("PC Advisor iniciado...")
+    print("Lectura de hardware: 1 segundo")
+    print("Historial SQLite: 1 minuto")
     print("Presiona CTRL + C para detener.\n")
 
-    temperatura = 0.0
-    gpu = None
-    ciclo = 0
+    ultimo_guardado = 0.0
+    historial_vivo = []
 
     while True:
-        cpu = obtener_cpu()
-        ram = obtener_ram()
-        disco = obtener_disco()
+        inicio = time.monotonic()
+        estado = obtener_estado_hardware()
+        estado["timestamp"] = time.time()
 
-        if ciclo % CICLOS_PARA_TEMPERATURA == 0:
-            temperatura = obtener_temperatura()
-            gpu = obtener_gpu()
+        # Mantiene una ventana corta de datos a 1 Hz. El dashboard la usa
+        # directamente, por lo que las gráficas no tienen que esperar al
+        # guardado de SQLite (que sigue siendo cada 60 s).
+        historial_vivo.append({
+            "timestamp": estado["timestamp"],
+            "cpu": estado["cpu"],
+            "ram": estado["ram"],
+            "disco": estado["disco"],
+            "gpu": estado["gpu"],
+        })
+        if len(historial_vivo) > MAX_HISTORIAL_VIVO:
+            historial_vivo = historial_vivo[-MAX_HISTORIAL_VIVO:]
+        estado["historial_vivo"] = historial_vivo
+        publicar_estado(estado)
 
-        guardar_lectura(cpu, ram, temperatura, disco, gpu)
+        # Diagnóstico/historial no condicionan la actualización visual.
+        ahora = time.monotonic()
+        if ahora - ultimo_guardado >= INTERVALO_HISTORIAL:
+            guardar_lectura(
+                estado["cpu"],
+                estado["ram"],
+                estado["temperatura_cpu"],
+                estado["disco"],
+                estado["gpu"],
+            )
+            diagnosticos = analizar()
+            procesar_diagnosticos(diagnosticos)
+            ultimo_guardado = ahora
+        else:
+            diagnosticos = []
 
-        diagnosticos = analizar()
-        mostrar_estado(cpu, ram, temperatura, disco, gpu, diagnosticos)
-        procesar_diagnosticos(diagnosticos)
+        mostrar_estado(estado, diagnosticos)
 
-        ciclo += 1
-        time.sleep(INTERVALO_RAPIDO)
+        # Mantiene el periodo cercano a 1 segundo, compensando el tiempo de lectura.
+        transcurrido = time.monotonic() - inicio
+        time.sleep(max(0.0, INTERVALO_VIVO - transcurrido))
 
 
 if __name__ == "__main__":

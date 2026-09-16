@@ -18,6 +18,7 @@ from hardware import specs_estaticas
 st.set_page_config(page_title="PC Advisor", page_icon="💻", layout="wide")
 
 # Actualización automática nativa de Streamlit. Solo se vuelve a ejecutar
+# el fragmento de la vista, evitando que el usuario tenga que recargar la página.
 if hasattr(st, "fragment"):
     _vista_en_vivo = lambda **kwargs: st.fragment(**kwargs)
 else:
@@ -46,6 +47,7 @@ div[data-testid="stMetric"] { background-color: #151D30; border: 1px solid #2832
 </style>
 """, unsafe_allow_html=True)
 
+# Diccionario con las explicaciones que aparecen al pasar el mouse sobre
 # cada término técnico (tooltips).
 GLOSARIO = {
     "cpu": "CPU (procesador): ejecuta las instrucciones de tus programas. Un uso alto y sostenido significa que hay procesos exigiendo mucho trabajo al mismo tiempo.",
@@ -82,11 +84,13 @@ def render_mi_equipo():
     filas = [
         ("Sistema operativo", specs["so"]),
         ("Procesador", specs["cpu_modelo"]),
-        ("Memoria RAM", f'{specs["ram_total_gb"]} GB' if specs["ram_total_gb"] else "No disponible"),
-        ("Disco", f'{specs["disco_total_gb"]} GB' if specs["disco_total_gb"] else "No disponible"),
+        ("Memoria RAM", f'{specs["ram_total_gb"]} GB' if specs["ram_total_gb"] else None),
+        ("Disco", f'{specs["disco_total_gb"]} GB' if specs["disco_total_gb"] else None),
         ("Tarjeta gráfica", specs["gpu"]),
         ("Placa madre", specs["placa_madre"]),
     ]
+    # Solo se listan los datos que el equipo entrego realmente.
+    filas = [(e, v) for e, v in filas if v and str(v).strip().lower() not in ("none", "no disponible")]
     for etiqueta, valor in filas:
         st.markdown(
             f'<div class="mi-equipo-fila"><span>{etiqueta}</span><span>{valor}</span></div>',
@@ -136,6 +140,8 @@ def vista_resumen():
         st.info("Todavía no hay lecturas. Ejecuta `Backend/monitor.py` y espera unos segundos.")
         return
 
+    # El timestamp viene del backend y permite saber que la pantalla está
+    # mostrando una lectura nueva, no una copia de SQLite.
     timestamp = float(estado.get("timestamp", 0) or 0)
     actualizado = time.strftime("%H:%M:%S", time.localtime(timestamp)) if timestamp else "--:--:--"
     edad_lectura = max(0, time.time() - timestamp) if timestamp else None
@@ -169,19 +175,47 @@ def vista_resumen():
                     st.session_state["alerta_descartada"] = id_alerta
                     st.rerun()
 
-    # Fila principal solicitada: CPU, temperatura CPU, RAM y % real de GPU.
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("CPU", f"{cpu:.1f}%", help=GLOSARIO["cpu"])
-    c2.metric("Temperatura CPU", f"{temperatura_cpu:.1f} °C" if temperatura_cpu else "No disponible", help=GLOSARIO["temperatura"])
-    c3.metric("RAM", f"{ram:.1f}%", help=GLOSARIO["ram"])
+    # Fila principal: solo se muestran las metricas que el equipo realmente
+    # reporta. Las que no existen (p. ej. temperatura de VRAM en GPUs que no
+    # tienen ese sensor) se omiten en vez de mostrar "No disponible".
+    metricas_cpu = [("CPU", f"{cpu:.1f}%", GLOSARIO["cpu"])]
+    if temperatura_cpu:
+        metricas_cpu.append(("Temperatura CPU", f"{temperatura_cpu:.1f} °C", GLOSARIO["temperatura"]))
+    metricas_cpu.append(("RAM", f"{ram:.1f}%", GLOSARIO["ram"]))
+
+    columnas_cpu = st.columns(len(metricas_cpu))
+    for columna, (etiqueta, valor, ayuda) in zip(columnas_cpu, metricas_cpu):
+        columna.metric(etiqueta, valor, help=ayuda)
+
+    if not temperatura_cpu:
+        st.caption(
+            "ℹ️ La temperatura del CPU no esta disponible. Windows no la expone "
+            "directamente: para verla, instala y deja abierto "
+            "[Libre Hardware Monitor](https://librehardwaremonitor.org) "
+            "(ejecutandolo como administrador)."
+        )
 
     st.markdown("---")
     st.subheader(f"🎮 Tarjeta gráfica · {gpu_nombre}")
-    g1, g2, g3 = st.columns(3)
-    # información secundaria y la métrica principal es el % de uso real.
-    g1.metric("Uso GPU", f"{gpu:.1f}%" if gpu is not None else "No disponible", help=GLOSARIO["gpu"])
-    g2.metric("Temperatura GPU", f"{temperatura_gpu:.1f} °C" if temperatura_gpu else "No disponible")
-    g3.metric("Temperatura VRAM", f"{temperatura_vram:.1f} °C" if temperatura_vram else "No disponible", help="Temperatura de memoria de la GPU cuando el hardware la expone.")
+
+    metricas_gpu = []
+    if gpu is not None:
+        metricas_gpu.append(("Uso GPU", f"{gpu:.1f}%", GLOSARIO["gpu"]))
+    if temperatura_gpu:
+        metricas_gpu.append(("Temperatura GPU", f"{temperatura_gpu:.1f} °C", None))
+    if temperatura_vram:
+        metricas_gpu.append((
+            "Temperatura VRAM",
+            f"{temperatura_vram:.1f} °C",
+            "Temperatura de memoria de la GPU cuando el hardware la expone.",
+        ))
+
+    if metricas_gpu:
+        columnas_gpu = st.columns(len(metricas_gpu))
+        for columna, (etiqueta, valor, ayuda) in zip(columnas_gpu, metricas_gpu):
+            columna.metric(etiqueta, valor, help=ayuda)
+    else:
+        st.caption("No se pudieron leer datos de la tarjeta grafica en este momento.")
     st.markdown("---")
 
 

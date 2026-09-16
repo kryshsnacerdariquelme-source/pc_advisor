@@ -1,0 +1,47 @@
+PC ADVISOR - INSTRUCCIONES
+============================
+
+Como usarlo (no necesitas instalar nada a mano ni escribir codigo):
+
+1. Copia toda esta carpeta "pc_advisor" a cualquier lugar del computador
+   (por ejemplo, al Escritorio).
+
+2. Haz DOBLE CLIC en el archivo:
+
+       Iniciar_PC_Advisor.bat
+
+3. La PRIMERA vez que lo abras:
+   - Si el equipo no tiene Python, se descargara e instalara solo
+     (necesita internet). Cuando termine, te pedira volver a abrir
+     el mismo archivo una segunda vez.
+   - Luego instalara automaticamente todo lo necesario para que la
+     app funcione. Esto puede tardar unos minutos, es normal.
+   - No hay que tocar nada, solo esperar.
+
+4. Las siguientes veces, con solo hacer doble clic en
+   "Iniciar_PC_Advisor.bat" la app abre directo en el navegador,
+   en segundos.
+
+5. Para cerrar la app, simplemente cierra la ventana negra
+   (la consola) que se abrio.
+
+Sugerencia: puedes crear un acceso directo en el Escritorio.
+   - Clic derecho sobre "Iniciar_PC_Advisor.bat"
+   - "Enviar a" > "Escritorio (crear acceso directo)"
+   Asi la persona solo ve un icono con el que abre la app,
+   sin ver carpetas ni archivos tecnicos.
+
+Requisitos:
+   - Windows 10 u 11 (64 bits).
+   - Conexion a internet SOLO la primera vez que se abre.
+   - Despues de la primera vez, funciona sin internet.
+
+Notas:
+   - Algunos sensores (temperatura de CPU/GPU) requieren tener
+     instalado "Libre Hardware Monitor" corriendo en el equipo;
+     si no esta, la app funciona igual pero esos datos pueden
+     aparecer como "No disponible".
+   - Windows Defender / SmartScreen puede mostrar una advertencia
+     la primera vez porque el archivo .bat no esta firmado
+     digitalmente. Es normal en scripts caseros: hay que elegir
+     "Mas informacion" > "Ejecutar de todas formas".

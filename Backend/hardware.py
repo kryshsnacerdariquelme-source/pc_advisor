@@ -10,9 +10,25 @@ import json
 import platform
 import re
 import subprocess
+import time as _time
 from typing import Any
 
 import psutil
+
+# Las consultas WMI/PowerShell son costosas (cada una arranca un proceso
+# nuevo). Monitor.py las pide una vez por segundo; sin cache eso satura
+# el CPU y acelera el ventilador aunque el equipo este "quieto".
+_CACHE: dict[str, tuple[float, Any]] = {}
+
+
+def _con_cache(clave: str, ttl: float, funcion):
+    ahora = _time.monotonic()
+    entrada = _CACHE.get(clave)
+    if entrada is not None and ahora - entrada[0] < ttl:
+        return entrada[1]
+    valor = funcion()
+    _CACHE[clave] = (ahora, valor)
+    return valor
 
 
 def _powershell(comando: str, timeout: float = 4) -> str:
@@ -91,6 +107,33 @@ def _es_gpu(sensor: dict) -> bool:
     ))
 
 
+PALABRAS_GPU_DEDICADA = ("nvidia", "geforce", "quadro", "radeon", "amd", "rx ", "arc")
+PALABRAS_GPU_INTEGRADA = ("intel", "uhd", "iris", "vega 8", "vega 3", "apu")
+
+
+def _es_gpu_dedicada(texto: str) -> bool:
+    return any(p in texto for p in PALABRAS_GPU_DEDICADA)
+
+
+def _es_gpu_integrada(texto: str) -> bool:
+    return any(p in texto for p in PALABRAS_GPU_INTEGRADA)
+
+
+def _identificador_gpu_dedicada(sensores: list[dict]) -> str | None:
+    """Si hay una GPU dedicada entre los sensores de LHM, devuelve su
+    identificador de hardware (Parent), para poder filtrar solo sus
+    sensores y no mezclarlos con los de una GPU integrada inactiva."""
+    for sensor in sensores:
+        if not _es_gpu(sensor):
+            continue
+        texto = _texto_sensor(sensor)
+        if _es_gpu_dedicada(texto) and not _es_gpu_integrada(texto):
+            parent = str(sensor.get("Parent") or "").strip()
+            if parent:
+                return parent
+    return None
+
+
 def _nombre_gpu_desde_sensores(sensores: list[dict]) -> str | None:
     """Obtiene el nombre del adaptador, evitando devolver /gpu-amd/0."""
     candidatos = []
@@ -164,13 +207,15 @@ def _cpu_temperatura_lhm(sensores: list[dict]) -> float | None:
     return candidatos[0][1]
 
 
-def _gpu_temperaturas_lhm(sensores: list[dict]) -> tuple[float | None, float | None]:
+def _gpu_temperaturas_lhm(sensores: list[dict], gpu_id: str | None = None) -> tuple[float | None, float | None]:
     core, vram = [], []
     for sensor in sensores:
         if str(sensor.get("SensorType", "")).lower() != "temperature":
             continue
         valor = _sensor_numero(sensor)
         if valor is None or not 0 < valor <= 130 or not _es_gpu(sensor):
+            continue
+        if gpu_id and str(sensor.get("Parent") or "").strip() != gpu_id:
             continue
         texto = _texto_sensor(sensor)
         if any(x in texto for x in ("memory", "mem", "vram", "memory junction", "hbm")):
@@ -183,10 +228,12 @@ def _gpu_temperaturas_lhm(sensores: list[dict]) -> tuple[float | None, float | N
     return core_valor, vram_valor
 
 
-def _gpu_carga_lhm(sensores: list[dict]) -> float | None:
+def _gpu_carga_lhm(sensores: list[dict], gpu_id: str | None = None) -> float | None:
     candidatos = []
     for sensor in sensores:
         if str(sensor.get("SensorType", "")).lower() != "load" or not _es_gpu(sensor):
+            continue
+        if gpu_id and str(sensor.get("Parent") or "").strip() != gpu_id:
             continue
         valor = _sensor_numero(sensor)
         if valor is None or not 0 <= valor <= 100:
@@ -229,10 +276,17 @@ try {
     if not nombres:
         return None
 
+    # Primero: cualquier tarjeta dedicada (NVIDIA/AMD/Arc), sin importar
+    # en que orden la haya listado Windows. Antes esto devolvia la
+    # primera coincidencia de la lista, que solia ser la integrada.
+    for nombre in nombres:
+        if _es_gpu_dedicada(nombre.lower()) and not _es_gpu_integrada(nombre.lower()):
+            return nombre
+
+    # Si no hay dedicada, cualquier adaptador grafico reconocible.
     for nombre in nombres:
         texto = nombre.lower()
         if any(x in texto for x in (
-            "nvidia", "geforce", "quadro", "radeon", "amd", "rx ",
             "intel arc", "intel(r) uhd", "intel(r) iris", "graphics"
         )):
             return nombre
@@ -259,7 +313,9 @@ def _gpu_nvidia_smi() -> tuple[str | None, float | None, float | None]:
 
 def obtener_estado_hardware() -> dict:
     """Una lectura coherente de todo el hardware dinámico."""
-    sensores = _leer_sensores_lhm()
+    # Sensores LHM y nvidia-smi cada 2s; el nombre de la GPU casi nunca
+    # cambia en una sesion, asi que se refresca cada 30s solamente.
+    sensores = _con_cache("sensores_lhm", 2.0, _leer_sensores_lhm)
 
     # CPU: psutil es la fuente de carga; el sensor de temperatura es LHM.
     try:
@@ -269,10 +325,14 @@ def obtener_estado_hardware() -> dict:
     ram = float(psutil.virtual_memory().percent)
 
     temperatura_cpu = _cpu_temperatura_lhm(sensores)
-    gpu_nombre_smi, gpu_carga, gpu_temp_smi = _gpu_nvidia_smi()
-    gpu_nombre_wmi = _nombre_gpu_wmi()
-    gpu_temp, vram_temp = _gpu_temperaturas_lhm(sensores)
-    gpu_lhm = _gpu_carga_lhm(sensores)
+    gpu_nombre_smi, gpu_carga, gpu_temp_smi = _con_cache("nvidia_smi", 2.0, _gpu_nvidia_smi)
+    gpu_nombre_wmi = _con_cache("nombre_gpu_wmi", 30.0, _nombre_gpu_wmi)
+    # Si el equipo tiene GPU integrada + dedicada, LHM entrega sensores de
+    # ambas mezclados. Identificamos la dedicada para leer SOLO sus datos
+    # y no terminar mostrando la carga/temperatura de la integrada.
+    gpu_id_dedicada = _identificador_gpu_dedicada(sensores)
+    gpu_temp, vram_temp = _gpu_temperaturas_lhm(sensores, gpu_id_dedicada)
+    gpu_lhm = _gpu_carga_lhm(sensores, gpu_id_dedicada)
     gpu_carga = gpu_lhm if gpu_lhm is not None else gpu_carga
     # El nombre del adaptador viene de WMI/nvidia-smi. Nunca usar el nombre
     # de un sensor D3D como "D3D Shared Memory Used" para identificar la GPU.

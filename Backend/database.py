@@ -26,16 +26,11 @@ def crear_tabla():
         )
     """)
 
-    # Migracion para bases de datos creadas antes de agregar disco/gpu
-    # (RF-01 completo: antes solo se guardaba cpu/ram/temperatura).
     columnas_existentes = {fila[1] for fila in conn.execute("PRAGMA table_info(lecturas)")}
     for columna in ("disco", "gpu"):
         if columna not in columnas_existentes:
             conn.execute(f"ALTER TABLE lecturas ADD COLUMN {columna} REAL")
 
-    # NUEVO: historial de diagnósticos/alertas (RF-16), separado de las
-    # lecturas crudas. Cada fila es un diagnóstico ya procesado, con su
-    # guía de solución asociada y un estado que se puede actualizar.
     conn.execute("""
         CREATE TABLE IF NOT EXISTS historial_recomendaciones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -102,7 +97,7 @@ def guardar_recomendacion(tipo_diagnostico, mensaje, guia_solucion):
 
     if ya_existe:
         conn.close()
-        return False  # ya hay una alerta igual pendiente, no duplicar
+        return False
 
     conn.execute("""
         INSERT INTO historial_recomendaciones (tipo_diagnostico, mensaje, guia_solucion)

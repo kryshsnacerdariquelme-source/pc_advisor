@@ -7,10 +7,8 @@ UMBRAL_RAM = 85
 UMBRAL_TEMP = 80
 PORCENTAJE_SOSTENIDO = 0.7  # el 70% de las últimas lecturas debe superar el umbral
 
-# RF-07: planes de energía de Windows que limitan el rendimiento a propósito.
 PLANES_RESTRICTIVOS = ("ahorro de energía", "ahorro de energia", "energy saver", "battery saver")
 
-# RF-08: no proyectar con pocos datos, y umbral considerado critico a futuro.
 DIAS_MINIMOS_PROYECCION = 5
 UMBRAL_RAM_PROYECTADO = 90
 

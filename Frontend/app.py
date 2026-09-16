@@ -18,7 +18,6 @@ from hardware import specs_estaticas
 st.set_page_config(page_title="PC Advisor", page_icon="💻", layout="wide")
 
 # Actualización automática nativa de Streamlit. Solo se vuelve a ejecutar
-# el fragmento de la vista, evitando que el usuario tenga que recargar la página.
 if hasattr(st, "fragment"):
     _vista_en_vivo = lambda **kwargs: st.fragment(**kwargs)
 else:
@@ -47,7 +46,6 @@ div[data-testid="stMetric"] { background-color: #151D30; border: 1px solid #2832
 </style>
 """, unsafe_allow_html=True)
 
-# Diccionario con las explicaciones que aparecen al pasar el mouse sobre
 # cada término técnico (tooltips).
 GLOSARIO = {
     "cpu": "CPU (procesador): ejecuta las instrucciones de tus programas. Un uso alto y sostenido significa que hay procesos exigiendo mucho trabajo al mismo tiempo.",
@@ -138,8 +136,6 @@ def vista_resumen():
         st.info("Todavía no hay lecturas. Ejecuta `Backend/monitor.py` y espera unos segundos.")
         return
 
-    # El timestamp viene del backend y permite saber que la pantalla está
-    # mostrando una lectura nueva, no una copia de SQLite.
     timestamp = float(estado.get("timestamp", 0) or 0)
     actualizado = time.strftime("%H:%M:%S", time.localtime(timestamp)) if timestamp else "--:--:--"
     edad_lectura = max(0, time.time() - timestamp) if timestamp else None
@@ -182,7 +178,6 @@ def vista_resumen():
     st.markdown("---")
     st.subheader(f"🎮 Tarjeta gráfica · {gpu_nombre}")
     g1, g2, g3 = st.columns(3)
-    # Se elimina 'GPU identificada' de las métricas: el nombre queda como
     # información secundaria y la métrica principal es el % de uso real.
     g1.metric("Uso GPU", f"{gpu:.1f}%" if gpu is not None else "No disponible", help=GLOSARIO["gpu"])
     g2.metric("Temperatura GPU", f"{temperatura_gpu:.1f} °C" if temperatura_gpu else "No disponible")

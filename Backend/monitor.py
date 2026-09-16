@@ -61,9 +61,6 @@ def procesar_diagnosticos(diagnosticos):
 
 def main():
     crear_tabla()
-    # "Prime" de psutil: con interval=None, la primera llamada no tiene con
-    # qué comparar y devuelve un valor sin sentido. Se descarta antes de
-    # empezar el loop real.
     psutil.cpu_percent(interval=None)
     print("PC Advisor iniciado...")
     print("Lectura de hardware: 1 segundo")
@@ -78,9 +75,6 @@ def main():
         estado = obtener_estado_hardware()
         estado["timestamp"] = time.time()
 
-        # Mantiene una ventana corta de datos a 1 Hz. El dashboard la usa
-        # directamente, por lo que las gráficas no tienen que esperar al
-        # guardado de SQLite (que sigue siendo cada 60 s).
         historial_vivo.append({
             "timestamp": estado["timestamp"],
             "cpu": estado["cpu"],
@@ -93,7 +87,6 @@ def main():
         estado["historial_vivo"] = historial_vivo
         publicar_estado(estado)
 
-        # Diagnóstico/historial no condicionan la actualización visual.
         ahora = time.monotonic()
         if ahora - ultimo_guardado >= INTERVALO_HISTORIAL:
             guardar_lectura(
@@ -111,7 +104,6 @@ def main():
 
         mostrar_estado(estado, diagnosticos)
 
-        # Mantiene el periodo cercano a 1 segundo, compensando el tiempo de lectura.
         transcurrido = time.monotonic() - inicio
         time.sleep(max(0.0, INTERVALO_VIVO - transcurrido))
 

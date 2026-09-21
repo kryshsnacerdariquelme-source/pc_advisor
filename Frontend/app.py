@@ -17,9 +17,6 @@ from database import (
 from hardware import specs_estaticas
 from diagnostico import UMBRAL_CPU, UMBRAL_RAM, UMBRAL_TEMP
 
-# Colores originales de PC Advisor: cada métrica ya tenía un color propio en
-# el gráfico comparativo (línea 240 y siguientes). Se reutilizan aquí como
-# "color de acento" de cada tarjeta para que todo el panel sea consistente.
 COLOR_FONDO = "#0D1321"
 COLOR_TARJETA = "#151D30"
 COLOR_BORDE = "#28324A"
@@ -32,14 +29,9 @@ ACENTO_DISCO = "#F59E0B"
 ACENTO_GPU = "#22C55E"
 COLOR_ZONA_LIMITE = "#EF4444"
 
-# GPU y Disco todavía no generan una alerta automática en el Backend (solo
-# CPU, RAM y temperatura lo hacen, ver diagnostico.py), así que para esas dos
-# tarjetas se usa un nivel de referencia general en vez de un umbral oficial.
 UMBRAL_GPU_REFERENCIA = 90
 UMBRAL_DISCO_REFERENCIA = 90
 
-# Explicación en lenguaje simple de qué significa cruzar la línea de límite
-# en cada gráfico. Se muestra al pasar el mouse por encima de la franja.
 EXPLICACION_LIMITE = {
     "cpu": f"Si pasa el {UMBRAL_CPU}% seguido por un rato: el procesador está trabajando al máximo casi todo el tiempo y el equipo puede sentirse lento o trabado.",
     "ram": f"Si pasa el {UMBRAL_RAM}% seguido por un rato: la memoria está casi llena y el equipo empieza a apoyarse en el disco (mucho más lento) para poder seguir funcionando.",
@@ -49,8 +41,6 @@ EXPLICACION_LIMITE = {
 
 st.set_page_config(page_title="PC Advisor", page_icon="💻", layout="wide")
 
-# Actualización automática nativa de Streamlit. Solo se vuelve a ejecutar
-# el fragmento de la vista, evitando que el usuario tenga que recargar la página.
 if hasattr(st, "fragment"):
     _vista_en_vivo = lambda **kwargs: st.fragment(**kwargs)
 else:
@@ -106,8 +96,6 @@ div[class*="st-key-tarjeta_disco"] {{ border-left-color: {ACENTO_DISCO}; }}
 </style>
 """, unsafe_allow_html=True)
 
-# Diccionario con las explicaciones que aparecen al pasar el mouse sobre
-# cada término técnico (tooltips).
 GLOSARIO = {
     "cpu": "CPU (procesador): ejecuta las instrucciones de tus programas. Un uso alto y sostenido significa que hay procesos exigiendo mucho trabajo al mismo tiempo.",
     "ram": "RAM (memoria): guarda temporalmente los datos que tus programas están usando en este momento. Si se satura, el equipo se vuelve lento porque empieza a apoyarse en el disco, que es mucho más lento.",
@@ -148,7 +136,7 @@ def render_mi_equipo():
         ("Tarjeta gráfica", specs["gpu"]),
         ("Placa madre", specs["placa_madre"]),
     ]
-    # Solo se listan los datos que el equipo entrego realmente.
+
     filas = [(e, v) for e, v in filas if v and str(v).strip().lower() not in ("none", "no disponible")]
     for etiqueta, valor in filas:
         st.markdown(
@@ -244,9 +232,6 @@ def _grafico_sparkline(serie, color, umbral=None):
     if umbral is not None:
         n = max(len(valores), 2)
         fig.add_hrect(y0=umbral, y1=100, fillcolor=COLOR_ZONA_LIMITE, opacity=0.12, line_width=0)
-        # Solo la franja + la línea punteada, sin globo de texto al pasar el
-        # mouse por encima: la explicación vive únicamente en el textito
-        # de abajo (⚠️) para no tapar el gráfico con un recuadro.
         fig.add_trace(go.Scatter(
             x=list(range(n)), y=[umbral] * n, mode="lines",
             line=dict(color=COLOR_ZONA_LIMITE, width=1.5, dash="dot"),
@@ -288,7 +273,7 @@ def render_tarjeta_metrica(key, icono, categoria, modelo, valor_pct, color, seri
             )
             if umbral is not None:
                 st.markdown(
-                    f'<div class="mini-label">⚠️ <span class="term" title="{texto_umbral}">franja roja = zona de riesgo, pasa el mouse por la línea punteada</span></div>',
+                    f'<div class="mini-label">⚠️ <span class="term" title="{texto_umbral}">franja roja = zona de riesgo</span></div>',
                     unsafe_allow_html=True,
                 )
         with col_datos:
@@ -319,8 +304,6 @@ def vista_resumen():
         st.info("Todavía no hay lecturas. Ejecuta `Backend/monitor.py` y espera unos segundos.")
         return
 
-    # El timestamp viene del backend y permite saber que la pantalla está
-    # mostrando una lectura nueva, no una copia de SQLite.
     timestamp = float(estado.get("timestamp", 0) or 0)
     actualizado = time.strftime("%H:%M:%S", time.localtime(timestamp)) if timestamp else "--:--:--"
     edad_lectura = max(0, time.time() - timestamp) if timestamp else None
@@ -354,9 +337,6 @@ def vista_resumen():
                     st.session_state["alerta_descartada"] = id_alerta
                     st.rerun()
 
-    # Series para las mini-barras y el sparkline de cada tarjeta: se usan las
-    # mismas lecturas del historial en vivo que ya alimentaban el gráfico
-    # comparativo, solo que ahora cada métrica tiene su propia mini-vista.
     serie_cpu = [float(p.get("cpu", 0) or 0) for p in historial_vivo]
     serie_ram = [float(p.get("ram", 0) or 0) for p in historial_vivo]
     serie_disco = [float(p.get("disco", 0) or 0) for p in historial_vivo]
@@ -435,8 +415,6 @@ def vista_resumen():
         umbral=UMBRAL_DISCO_REFERENCIA,
     )
 
-    # Otras unidades montadas: sin historial propio, se listan como filas
-    # compactas debajo de la tarjeta de disco principal.
     if len(discos) > 1:
         st.caption("Otras unidades detectadas")
         for d in discos:
@@ -470,7 +448,6 @@ def vista_resumen():
         )
         st.plotly_chart(fig2, config={"displayModeBar": False, "responsive": True}, width="stretch")
     elif filas:
-        # Compatibilidad con estados generados por una versión anterior del monitor.
         filas_r = list(reversed(filas))
         x = list(range(len(filas_r)))
         fig2 = go.Figure()

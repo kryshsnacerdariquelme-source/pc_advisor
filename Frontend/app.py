@@ -5,6 +5,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent / "Backend"))
 
+import psutil
 import streamlit as st
 import plotly.graph_objects as go
 from database import (
@@ -14,6 +15,37 @@ from database import (
     obtener_alerta_pendiente_mas_reciente,
 )
 from hardware import specs_estaticas
+from diagnostico import UMBRAL_CPU, UMBRAL_RAM, UMBRAL_TEMP
+
+# Colores originales de PC Advisor: cada métrica ya tenía un color propio en
+# el gráfico comparativo (línea 240 y siguientes). Se reutilizan aquí como
+# "color de acento" de cada tarjeta para que todo el panel sea consistente.
+COLOR_FONDO = "#0D1321"
+COLOR_TARJETA = "#151D30"
+COLOR_BORDE = "#28324A"
+COLOR_TEXTO = "#E8ECF2"
+COLOR_TEXTO_TENUE = "#8B93A8"
+COLOR_TRACK_ANILLO = "#1D2740"
+ACENTO_CPU = "#3B82F6"
+ACENTO_RAM = "#8B5CF6"
+ACENTO_DISCO = "#F59E0B"
+ACENTO_GPU = "#22C55E"
+COLOR_ZONA_LIMITE = "#EF4444"
+
+# GPU y Disco todavía no generan una alerta automática en el Backend (solo
+# CPU, RAM y temperatura lo hacen, ver diagnostico.py), así que para esas dos
+# tarjetas se usa un nivel de referencia general en vez de un umbral oficial.
+UMBRAL_GPU_REFERENCIA = 90
+UMBRAL_DISCO_REFERENCIA = 90
+
+# Explicación en lenguaje simple de qué significa cruzar la línea de límite
+# en cada gráfico. Se muestra al pasar el mouse por encima de la franja.
+EXPLICACION_LIMITE = {
+    "cpu": f"Si pasa el {UMBRAL_CPU}% seguido por un rato: el procesador está trabajando al máximo casi todo el tiempo y el equipo puede sentirse lento o trabado.",
+    "ram": f"Si pasa el {UMBRAL_RAM}% seguido por un rato: la memoria está casi llena y el equipo empieza a apoyarse en el disco (mucho más lento) para poder seguir funcionando.",
+    "gpu": f"Si pasa el {UMBRAL_GPU_REFERENCIA}%: la tarjeta gráfica está trabajando al máximo. Es normal si estás jugando o editando video; si ocurre sin razón aparente, vale la pena revisarlo.",
+    "disco": f"Si pasa el {UMBRAL_DISCO_REFERENCIA}%: el disco está casi lleno. Sin espacio libre, Windows no tiene dónde guardar archivos temporales y el equipo se puede volver lento.",
+}
 
 st.set_page_config(page_title="PC Advisor", page_icon="💻", layout="wide")
 
@@ -34,16 +66,43 @@ if "_vista_en_vivo" not in globals():
 
 crear_tabla()
 
-st.markdown("""
+st.markdown(f"""
 <style>
-.stApp { background-color: #0D1321; color: #E8ECF2; }
-div[data-testid="stMetric"] { background-color: #151D30; border: 1px solid #28324A; border-radius: 12px; padding: 12px 16px; }
-.card { background-color: #151D30; border: 1px solid #28324A; border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
-.badge-alto { background-color: #4A1414; color: #EF4444; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 13px; }
-.badge-ok { background-color: #14351C; color: #22C55E; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 13px; }
-.term { border-bottom: 1px dotted #8B93A8; cursor: help; }
-.mi-equipo-fila { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; border-bottom: 1px solid #1D2740; }
-.mi-equipo-fila span:first-child { color: #8B93A8; }
+.stApp {{ background-color: {COLOR_FONDO}; color: {COLOR_TEXTO}; }}
+div[data-testid="stMetric"] {{ background-color: {COLOR_TARJETA}; border: 1px solid {COLOR_BORDE}; border-radius: 12px; padding: 12px 16px; }}
+.card {{ background-color: {COLOR_TARJETA}; border: 1px solid {COLOR_BORDE}; border-left: 4px solid {ACENTO_DISCO}; border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }}
+.badge-alto {{ background-color: #4A1414; color: #EF4444; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 13px; }}
+.badge-ok {{ background-color: #14351C; color: #22C55E; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 13px; }}
+.term {{ border-bottom: 1px dotted {COLOR_TEXTO_TENUE}; cursor: help; }}
+.mi-equipo-fila {{ display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; border-bottom: 1px solid {COLOR_TRACK_ANILLO}; }}
+.mi-equipo-fila span:first-child {{ color: {COLOR_TEXTO_TENUE}; }}
+
+/* --- Tarjetas de métrica estilo "monitor de sistema" --- */
+div[class*="st-key-tarjeta_"] {{
+    background-color: {COLOR_TARJETA};
+    border: 1px solid {COLOR_BORDE};
+    border-left: 5px solid transparent;
+    border-radius: 12px;
+    padding: 14px 18px 4px 18px;
+    margin-bottom: 16px;
+}}
+div[class*="st-key-tarjeta_cpu"] {{ border-left-color: {ACENTO_CPU}; }}
+div[class*="st-key-tarjeta_ram"] {{ border-left-color: {ACENTO_RAM}; }}
+div[class*="st-key-tarjeta_gpu"] {{ border-left-color: {ACENTO_GPU}; }}
+div[class*="st-key-tarjeta_disco"] {{ border-left-color: {ACENTO_DISCO}; }}
+
+.tarjeta-header {{ display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; flex-wrap: wrap; }}
+.tarjeta-icono {{ font-size: 20px; }}
+.tarjeta-titulo {{ font-weight: 700; font-size: 15px; }}
+.tarjeta-modelo {{ color: {COLOR_TEXTO_TENUE}; font-size: 13px; }}
+.mini-label {{ text-align: center; color: {COLOR_TEXTO_TENUE}; font-size: 11px; margin-top: -14px; }}
+.stat-fila {{ display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 3px 0; border-bottom: 1px dashed {COLOR_TRACK_ANILLO}; }}
+.stat-fila:last-child {{ border-bottom: none; }}
+.stat-fila span:first-child {{ color: {COLOR_TEXTO_TENUE}; }}
+.stat-fila strong {{ font-weight: 600; }}
+.disco-chip {{ display: flex; justify-content: space-between; align-items: center; background-color: {COLOR_TRACK_ANILLO}; border-radius: 10px; padding: 8px 14px; margin-bottom: 8px; font-size: 13px; }}
+.disco-chip span:first-child {{ font-weight: 600; }}
+.disco-chip span:last-child {{ color: {COLOR_TEXTO_TENUE}; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -121,6 +180,126 @@ def cargar_datos():
     return estado, filas
 
 
+def _grafico_anillo(valor_pct, color):
+    """Anillo de progreso (como el % circular de la imagen de referencia)."""
+    valor_pct = max(0.0, min(100.0, float(valor_pct or 0)))
+    fig = go.Figure(go.Pie(
+        values=[valor_pct, 100 - valor_pct],
+        hole=0.72,
+        sort=False,
+        direction="clockwise",
+        rotation=270,
+        marker=dict(colors=[color, COLOR_TRACK_ANILLO], line=dict(width=0)),
+        textinfo="none",
+        hoverinfo="skip",
+    ))
+    fig.update_layout(
+        showlegend=False,
+        margin=dict(l=0, r=0, t=0, b=0),
+        height=118,
+        paper_bgcolor="rgba(0,0,0,0)",
+        annotations=[dict(
+            text=f"<b>{valor_pct:.0f}%</b>", x=0.5, y=0.5, showarrow=False,
+            font=dict(size=22, color=COLOR_TEXTO),
+        )],
+    )
+    return fig
+
+
+def _grafico_barras_mini(serie, color, umbral=None):
+    """Mini barras tipo ecualizador con las últimas lecturas."""
+    valores = [float(v) for v in (serie or [])][-8:]
+    if not valores:
+        valores = [0]
+    fig = go.Figure(go.Bar(
+        x=list(range(len(valores))), y=valores,
+        marker_color=color, marker_line_width=0,
+        hoverinfo="skip",
+    ))
+    if umbral is not None and len(valores) > 1:
+        fig.add_hrect(y0=umbral, y1=100, fillcolor=COLOR_ZONA_LIMITE, opacity=0.12, line_width=0)
+    fig.update_layout(
+        height=70, margin=dict(l=0, r=0, t=6, b=0),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        xaxis=dict(visible=False), yaxis=dict(visible=False, range=[0, 100]),
+        bargap=0.35,
+    )
+    return fig
+
+
+def _grafico_sparkline(serie, color, umbral=None):
+    """Línea de tendencia (últimos segundos) rellena, estilo mini-gráfico.
+
+    Si se indica un umbral, se dibuja una franja roja sobre ese nivel (la
+    "zona mala") con una línea punteada en el borde. La explicación de qué
+    significa esa franja se muestra aparte, en el textito de abajo (⚠️).
+    """
+    valores = [float(v) for v in (serie or [])]
+    if not valores:
+        valores = [0]
+    fig = go.Figure(go.Scatter(
+        y=valores, mode="lines", line=dict(color=color, width=2),
+        fill="tozeroy", fillcolor=color + "33", hoverinfo="skip",
+    ))
+    if umbral is not None:
+        n = max(len(valores), 2)
+        fig.add_hrect(y0=umbral, y1=100, fillcolor=COLOR_ZONA_LIMITE, opacity=0.12, line_width=0)
+        # Solo la franja + la línea punteada, sin globo de texto al pasar el
+        # mouse por encima: la explicación vive únicamente en el textito
+        # de abajo (⚠️) para no tapar el gráfico con un recuadro.
+        fig.add_trace(go.Scatter(
+            x=list(range(n)), y=[umbral] * n, mode="lines",
+            line=dict(color=COLOR_ZONA_LIMITE, width=1.5, dash="dot"),
+            hoverinfo="skip", name="Límite", showlegend=False,
+        ))
+    fig.update_layout(
+        height=70, margin=dict(l=0, r=0, t=6, b=0),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        xaxis=dict(visible=False), yaxis=dict(visible=False, range=[0, 100]),
+    )
+    return fig
+
+
+def render_tarjeta_metrica(key, icono, categoria, modelo, valor_pct, color, serie, stats, clave_glosario=None, umbral=None):
+    """Tarjeta completa de una métrica: anillo + mini-barras + sparkline + datos,
+    mezclando la disposición de la imagen de referencia con los colores y el
+    lenguaje simple (tooltips) que ya tenía PC Advisor."""
+    texto_umbral = EXPLICACION_LIMITE.get(clave_glosario) if clave_glosario else None
+    with st.container(key=key):
+        etiqueta_modelo = f'<span class="tarjeta-modelo">{modelo}</span>' if modelo else ""
+        st.markdown(
+            f'<div class="tarjeta-header"><span class="tarjeta-titulo">{categoria}</span>{etiqueta_modelo}</div>',
+            unsafe_allow_html=True,
+        )
+        col_anillo, col_barras, col_spark, col_datos = st.columns([1.1, 1.2, 1.5, 1.7])
+        with col_anillo:
+            st.plotly_chart(_grafico_anillo(valor_pct, color), config={"displayModeBar": False}, width="stretch")
+            etiqueta = f"USO {categoria.upper()}"
+            if clave_glosario:
+                st.markdown(f'<div class="mini-label">{term(etiqueta, clave_glosario)}</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="mini-label">{etiqueta}</div>', unsafe_allow_html=True)
+        with col_barras:
+            st.plotly_chart(_grafico_barras_mini(serie, color, umbral=umbral), config={"displayModeBar": False}, width="stretch")
+        with col_spark:
+            st.plotly_chart(
+                _grafico_sparkline(serie, color, umbral=umbral),
+                config={"displayModeBar": False}, width="stretch",
+            )
+            if umbral is not None:
+                st.markdown(
+                    f'<div class="mini-label">⚠️ <span class="term" title="{texto_umbral}">franja roja = zona de riesgo, pasa el mouse por la línea punteada</span></div>',
+                    unsafe_allow_html=True,
+                )
+        with col_datos:
+            for etiqueta_dato, valor_dato, clave_dato in stats:
+                texto_etiqueta = term(etiqueta_dato, clave_dato) if clave_dato else etiqueta_dato
+                st.markdown(
+                    f'<div class="stat-fila"><span>{texto_etiqueta}</span><strong>{valor_dato}</strong></div>',
+                    unsafe_allow_html=True,
+                )
+
+
 def ir_a_guia(id_diagnostico):
     st.session_state["diagnostico_seleccionado"] = id_diagnostico
     st.switch_page(pagina_guia)
@@ -175,61 +354,100 @@ def vista_resumen():
                     st.session_state["alerta_descartada"] = id_alerta
                     st.rerun()
 
-    # Fila principal: solo se muestran las metricas que el equipo realmente
-    # reporta. Las que no existen (p. ej. temperatura de VRAM en GPUs que no
-    # tienen ese sensor) se omiten en vez de mostrar "No disponible".
-    metricas_cpu = [("CPU", f"{cpu:.1f}%", GLOSARIO["cpu"])]
+    # Series para las mini-barras y el sparkline de cada tarjeta: se usan las
+    # mismas lecturas del historial en vivo que ya alimentaban el gráfico
+    # comparativo, solo que ahora cada métrica tiene su propia mini-vista.
+    serie_cpu = [float(p.get("cpu", 0) or 0) for p in historial_vivo]
+    serie_ram = [float(p.get("ram", 0) or 0) for p in historial_vivo]
+    serie_disco = [float(p.get("disco", 0) or 0) for p in historial_vivo]
+    serie_gpu = [float(p.get("gpu", 0) or 0) for p in historial_vivo if p.get("gpu") is not None]
+
+    specs = _specs_equipo_cacheadas()
+
+    # --- Tarjeta CPU ---
+    stats_cpu = []
     if temperatura_cpu:
-        metricas_cpu.append(("Temperatura CPU", f"{temperatura_cpu:.1f} °C", GLOSARIO["temperatura"]))
-    metricas_cpu.append(("RAM", f"{ram:.1f}%", GLOSARIO["ram"]))
-
-    columnas_cpu = st.columns(len(metricas_cpu))
-    for columna, (etiqueta, valor, ayuda) in zip(columnas_cpu, metricas_cpu):
-        columna.metric(etiqueta, valor, help=ayuda)
-
+        stats_cpu.append(("Temp. CPU", f"{temperatura_cpu:.0f} °C", "temperatura"))
+    try:
+        hilos = psutil.cpu_count(logical=True)
+        nucleos = psutil.cpu_count(logical=False)
+        if hilos:
+            etiqueta_hilos = f"{nucleos} núcleos / {hilos} hilos" if nucleos and nucleos != hilos else f"{hilos}"
+            stats_cpu.append(("Núcleos / hilos", etiqueta_hilos, None))
+    except Exception:
+        pass
+    try:
+        frecuencia = psutil.cpu_freq()
+        if frecuencia and frecuencia.current:
+            stats_cpu.append(("Frecuencia actual", f"{frecuencia.current / 1000:.2f} GHz", None))
+    except Exception:
+        pass
+    render_tarjeta_metrica(
+        key="tarjeta_cpu", icono="🧠", categoria="CPU", modelo=specs.get("cpu_modelo"),
+        valor_pct=cpu, color=ACENTO_CPU, serie=serie_cpu, stats=stats_cpu, clave_glosario="cpu",
+        umbral=UMBRAL_CPU,
+    )
     if not temperatura_cpu:
         st.caption(
-            "ℹ️ La temperatura del CPU no esta disponible. Windows no la expone "
+            "ℹ️ La temperatura del CPU no está disponible. Windows no la expone "
             "directamente: para verla, instala y deja abierto "
             "[Libre Hardware Monitor](https://librehardwaremonitor.org) "
-            "(ejecutandolo como administrador)."
+            "(ejecutándolo como administrador)."
         )
 
-    st.markdown("---")
-    st.subheader(f"🎮 Tarjeta gráfica · {gpu_nombre}")
+    # --- Tarjeta RAM ---
+    ram_total_gb = specs.get("ram_total_gb")
+    stats_ram = []
+    if ram_total_gb:
+        stats_ram.append(("En uso", f"{ram_total_gb * ram / 100:.1f} / {ram_total_gb:.1f} GB", None))
+    else:
+        stats_ram.append(("Uso actual", f"{ram:.1f}%", None))
+    render_tarjeta_metrica(
+        key="tarjeta_ram", icono="🧩", categoria="RAM", modelo=None,
+        valor_pct=ram, color=ACENTO_RAM, serie=serie_ram, stats=stats_ram, clave_glosario="ram",
+        umbral=UMBRAL_RAM,
+    )
 
-    metricas_gpu = []
+    # --- Tarjeta GPU ---
     if gpu is not None:
-        metricas_gpu.append(("Uso GPU", f"{gpu:.1f}%", GLOSARIO["gpu"]))
-    if temperatura_gpu:
-        metricas_gpu.append(("Temperatura GPU", f"{temperatura_gpu:.1f} °C", None))
-    if temperatura_vram:
-        metricas_gpu.append((
-            "Temperatura VRAM",
-            f"{temperatura_vram:.1f} °C",
-            "Temperatura de memoria de la GPU cuando el hardware la expone.",
-        ))
-
-    if metricas_gpu:
-        columnas_gpu = st.columns(len(metricas_gpu))
-        for columna, (etiqueta, valor, ayuda) in zip(columnas_gpu, metricas_gpu):
-            columna.metric(etiqueta, valor, help=ayuda)
+        stats_gpu = []
+        if temperatura_gpu:
+            stats_gpu.append(("Temp. GPU", f"{temperatura_gpu:.0f} °C", None))
+        if temperatura_vram:
+            stats_gpu.append(("Temp. VRAM", f"{temperatura_vram:.0f} °C",
+                               "Temperatura de memoria de la GPU cuando el hardware la expone."))
+        render_tarjeta_metrica(
+            key="tarjeta_gpu", icono="🎮", categoria="GPU", modelo=gpu_nombre,
+            valor_pct=gpu, color=ACENTO_GPU, serie=serie_gpu, stats=stats_gpu, clave_glosario="gpu",
+            umbral=UMBRAL_GPU_REFERENCIA,
+        )
     else:
-        st.caption("No se pudieron leer datos de la tarjeta grafica en este momento.")
-    st.markdown("---")
+        st.caption(f"🎮 Tarjeta gráfica · {gpu_nombre} — no se pudieron leer datos de uso en este momento.")
 
+    # --- Tarjeta Disco principal ---
+    disco_principal = float(estado.get("disco", 0) or 0)
+    stats_disco = []
+    if specs.get("disco_total_gb"):
+        stats_disco.append(("Capacidad total", f"{specs['disco_total_gb']:.0f} GB", None))
+    render_tarjeta_metrica(
+        key="tarjeta_disco", icono="💾", categoria="Disco", modelo="Unidad principal",
+        valor_pct=disco_principal, color=ACENTO_DISCO, serie=serie_disco, stats=stats_disco, clave_glosario="disco",
+        umbral=UMBRAL_DISCO_REFERENCIA,
+    )
 
-    st.subheader("💾 Discos detectados")
-    if discos:
-        columnas = st.columns(min(4, len(discos)))
-        for i, d in enumerate(discos):
-            with columnas[i % len(columnas)]:
-                st.metric(d.get("unidad", "Disco"), f"{float(d.get('uso', 0)):.1f}% usado")
-                st.caption(
-                    f"{float(d.get('usado_gb', 0)):.1f} / {float(d.get('total_gb', 0)):.1f} GB"
-                    + (f" · {float(d.get('temperatura', 0)):.1f} °C" if d.get("temperatura") else "")
-                )
-    else:
+    # Otras unidades montadas: sin historial propio, se listan como filas
+    # compactas debajo de la tarjeta de disco principal.
+    if len(discos) > 1:
+        st.caption("Otras unidades detectadas")
+        for d in discos:
+            temp_txt = f" · {float(d.get('temperatura', 0)):.0f} °C" if d.get("temperatura") else ""
+            st.markdown(
+                f'<div class="disco-chip"><span>{d.get("unidad", "Disco")}</span>'
+                f'<span>{float(d.get("usado_gb", 0)):.1f} / {float(d.get("total_gb", 0)):.1f} GB '
+                f'· {float(d.get("uso", 0)):.0f}% usado{temp_txt}</span></div>',
+                unsafe_allow_html=True,
+            )
+    elif not discos:
         st.caption("No se detectaron unidades montadas.")
 
     st.markdown("---")

@@ -10,6 +10,9 @@ from diagnostico import analizar
 from guia_solucion import obtener_guia
 from hardware import obtener_estado_hardware
 from notificaciones import notificar
+from logger_config import obtener_logger
+
+log = obtener_logger(__name__)
 
 # Lectura viva: una vez por segundo.
 INTERVALO_VIVO = 1.0
@@ -69,40 +72,57 @@ def main():
 
     ultimo_guardado = 0.0
     historial_vivo = []
+    errores_seguidos = 0
+
+    log.info("Monitor iniciado")
 
     while True:
         inicio = time.monotonic()
-        estado = obtener_estado_hardware()
-        estado["timestamp"] = time.time()
+        try:
+            estado = obtener_estado_hardware()
+            estado["timestamp"] = time.time()
 
-        historial_vivo.append({
-            "timestamp": estado["timestamp"],
-            "cpu": estado["cpu"],
-            "ram": estado["ram"],
-            "disco": estado["disco"],
-            "gpu": estado["gpu"],
-        })
-        if len(historial_vivo) > MAX_HISTORIAL_VIVO:
-            historial_vivo = historial_vivo[-MAX_HISTORIAL_VIVO:]
-        estado["historial_vivo"] = historial_vivo
-        publicar_estado(estado)
+            historial_vivo.append({
+                "timestamp": estado["timestamp"],
+                "cpu": estado["cpu"],
+                "ram": estado["ram"],
+                "disco": estado["disco"],
+                "gpu": estado["gpu"],
+            })
+            if len(historial_vivo) > MAX_HISTORIAL_VIVO:
+                historial_vivo = historial_vivo[-MAX_HISTORIAL_VIVO:]
+            estado["historial_vivo"] = historial_vivo
+            publicar_estado(estado)
 
-        ahora = time.monotonic()
-        if ahora - ultimo_guardado >= INTERVALO_HISTORIAL:
-            guardar_lectura(
-                estado["cpu"],
-                estado["ram"],
-                estado["temperatura_cpu"],
-                estado["disco"],
-                estado["gpu"],
-            )
-            diagnosticos = analizar()
-            procesar_diagnosticos(diagnosticos)
-            ultimo_guardado = ahora
-        else:
-            diagnosticos = []
+            ahora = time.monotonic()
+            if ahora - ultimo_guardado >= INTERVALO_HISTORIAL:
+                guardar_lectura(
+                    estado["cpu"],
+                    estado["ram"],
+                    estado["temperatura_cpu"],
+                    estado["disco"],
+                    estado["gpu"],
+                )
+                diagnosticos = analizar()
+                procesar_diagnosticos(diagnosticos)
+                ultimo_guardado = ahora
+            else:
+                diagnosticos = []
 
-        mostrar_estado(estado, diagnosticos)
+            mostrar_estado(estado, diagnosticos)
+            errores_seguidos = 0
+        except Exception:
+            # Una lectura fallida (sensor caido, WMI ocupado, disco
+            # desconectado, etc.) no debe cerrar el monitor completo:
+            # se registra en el log y se reintenta en el siguiente ciclo.
+            errores_seguidos += 1
+            log.exception("Fallo en el ciclo de monitoreo (intento fallido N°%s seguido)", errores_seguidos)
+            if errores_seguidos >= 10:
+                log.critical(
+                    "10 ciclos seguidos han fallado. Puede haber un problema "
+                    "persistente (permisos, sensor desconectado, disco lleno)."
+                )
+                errores_seguidos = 0
 
         transcurrido = time.monotonic() - inicio
         time.sleep(max(0.0, INTERVALO_VIVO - transcurrido))

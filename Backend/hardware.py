@@ -15,6 +15,10 @@ from typing import Any
 
 import psutil
 
+from logger_config import obtener_logger
+
+log = obtener_logger(__name__)
+
 # Las consultas WMI/PowerShell son costosas (cada una arranca un proceso
 # nuevo). Monitor.py las pide una vez por segundo; sin cache eso satura
 # el CPU y acelera el ventilador aunque el equipo este "quieto".
@@ -42,8 +46,14 @@ def _powershell(comando: str, timeout: float = 4) -> str:
             timeout=timeout,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
+        if resultado.returncode != 0 and resultado.stderr:
+            log.debug("PowerShell devolvio error (comando: %.60s...): %s", comando, resultado.stderr.strip())
         return resultado.stdout.strip()
+    except subprocess.TimeoutExpired:
+        log.debug("PowerShell no respondio a tiempo (timeout=%ss)", timeout)
+        return ""
     except Exception:
+        log.exception("Fallo inesperado ejecutando PowerShell")
         return ""
 
 
@@ -79,7 +89,12 @@ try {{
                 datos = [datos]
             return [x for x in datos if isinstance(x, dict)]
         except Exception:
+            log.debug("Respuesta de LHM (%s) no es JSON valido, se ignora", namespace)
             continue
+    log.info(
+        "No se encontraron sensores de LibreHardwareMonitor/OpenHardwareMonitor. "
+        "Es normal si no esta instalado o no esta corriendo como administrador."
+    )
     return []
 
 

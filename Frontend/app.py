@@ -7,6 +7,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent / "Backend"))
 
 import psutil
 import streamlit as st
+from PIL import Image
 import plotly.graph_objects as go
 from database import (
     crear_tabla,
@@ -16,6 +17,9 @@ from database import (
 )
 from hardware import specs_estaticas
 from diagnostico import UMBRAL_CPU, UMBRAL_RAM, UMBRAL_TEMP
+
+RUTA_LOGO = Path(__file__).resolve().parent.parent / "assets" / "logo.png"
+LOGO = Image.open(RUTA_LOGO) if RUTA_LOGO.exists() else "💻"
 
 COLOR_FONDO = "#0D1321"
 COLOR_TARJETA = "#151D30"
@@ -39,7 +43,7 @@ EXPLICACION_LIMITE = {
     "disco": f"Si pasa el {UMBRAL_DISCO_REFERENCIA}%: el disco está casi lleno. Sin espacio libre, Windows no tiene dónde guardar archivos temporales y el equipo se puede volver lento.",
 }
 
-st.set_page_config(page_title="PC Advisor", page_icon="💻", layout="wide")
+st.set_page_config(page_title="PC Advisor", page_icon=LOGO, layout="wide")
 
 if hasattr(st, "fragment"):
     _vista_en_vivo = lambda **kwargs: st.fragment(**kwargs)
@@ -127,7 +131,11 @@ def render_mi_equipo():
     igual al de 'Mi Equipo' del prototipo."""
     specs = _specs_equipo_cacheadas()
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown("**💻 Mi Equipo**")
+    col_logo_eq, col_titulo_eq = st.columns([1, 5])
+    with col_logo_eq:
+        st.image(str(RUTA_LOGO), width=28)
+    with col_titulo_eq:
+        st.markdown("**Mi Equipo**")
     filas = [
         ("Sistema operativo", specs["so"]),
         ("Procesador", specs["cpu_modelo"]),
@@ -168,8 +176,10 @@ def cargar_datos():
     return estado, filas
 
 
-def _grafico_anillo(valor_pct, color):
-    """Anillo de progreso (como el % circular de la imagen de referencia)."""
+def _grafico_anillo(valor_pct, color, altura=118, grosor_texto=22):
+    """Anillo de progreso (como el % circular de la imagen de referencia).
+    `altura`/`grosor_texto` permiten reutilizarlo tanto en el panel
+    general (anillos grandes) como en las tarjetas de detalle (chicos)."""
     valor_pct = max(0.0, min(100.0, float(valor_pct or 0)))
     fig = go.Figure(go.Pie(
         values=[valor_pct, 100 - valor_pct],
@@ -184,11 +194,11 @@ def _grafico_anillo(valor_pct, color):
     fig.update_layout(
         showlegend=False,
         margin=dict(l=0, r=0, t=0, b=0),
-        height=118,
+        height=altura,
         paper_bgcolor="rgba(0,0,0,0)",
         annotations=[dict(
             text=f"<b>{valor_pct:.0f}%</b>", x=0.5, y=0.5, showarrow=False,
-            font=dict(size=22, color=COLOR_TEXTO),
+            font=dict(size=grosor_texto, color=COLOR_TEXTO),
         )],
     )
     return fig
@@ -245,27 +255,72 @@ def _grafico_sparkline(serie, color, umbral=None):
     return fig
 
 
+def render_panel_general(estado, specs, cpu, ram, gpu, gpu_nombre, temperatura_cpu, temperatura_gpu, discos):
+    """Panel superior estilo 'Hardware Monitoring': dos anillos grandes
+    (CPU/GPU) a la izquierda y una lista de datos crudos a la derecha,
+    inspirado en la captura de referencia que mandaste."""
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    col_cpu, col_gpu, col_lista = st.columns([1, 1, 1.6])
+
+    with col_cpu:
+        st.plotly_chart(_grafico_anillo(cpu, ACENTO_CPU, altura=150, grosor_texto=26),
+                         config={"displayModeBar": False}, width="stretch")
+        st.markdown(f'<div class="mini-label">{term("USO DE CPU", "cpu")}</div>', unsafe_allow_html=True)
+
+    with col_gpu:
+        if gpu is not None:
+            st.plotly_chart(_grafico_anillo(gpu, ACENTO_GPU, altura=150, grosor_texto=26),
+                             config={"displayModeBar": False}, width="stretch")
+            st.markdown(f'<div class="mini-label">{term("USO DE GPU", "gpu")}</div>', unsafe_allow_html=True)
+        else:
+            st.plotly_chart(_grafico_anillo(0, ACENTO_GPU, altura=150, grosor_texto=26),
+                             config={"displayModeBar": False}, width="stretch")
+            st.markdown('<div class="mini-label">GPU no disponible</div>', unsafe_allow_html=True)
+
+    with col_lista:
+        filas_lista = [("Uso de RAM", f"{ram:.0f}%")]
+        try:
+            hilos = psutil.cpu_count(logical=True)
+            frecuencia = psutil.cpu_freq()
+            if frecuencia and frecuencia.current:
+                filas_lista.append(("Frecuencia CPU", f"{frecuencia.current / 1000:.2f} GHz"))
+        except Exception:
+            pass
+        if temperatura_cpu:
+            filas_lista.append(("Temperatura CPU", f"{temperatura_cpu:.0f} °C"))
+        if temperatura_gpu:
+            filas_lista.append(("Temperatura GPU", f"{temperatura_gpu:.0f} °C"))
+        for disco in discos[:3]:
+            filas_lista.append((
+                disco.get("unidad", "Disco"),
+                f"{disco.get('usado_gb', 0):.0f} / {disco.get('total_gb', 0):.0f} GB · {disco.get('uso', 0):.0f}%",
+            ))
+        for etiqueta, valor in filas_lista:
+            st.markdown(
+                f'<div class="stat-fila"><span>{etiqueta}</span><strong>{valor}</strong></div>',
+                unsafe_allow_html=True,
+            )
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
 def render_tarjeta_metrica(key, icono, categoria, modelo, valor_pct, color, serie, stats, clave_glosario=None, umbral=None):
-    """Tarjeta completa de una métrica: anillo + mini-barras + sparkline + datos,
-    mezclando la disposición de la imagen de referencia con los colores y el
-    lenguaje simple (tooltips) que ya tenía PC Advisor."""
+    """Tarjeta de detalle de una métrica: mini-barras + sparkline + datos
+    de historial reciente. El valor '% actual' ya se muestra en el panel
+    general de arriba, así que acá no se repite el anillo grande."""
     texto_umbral = EXPLICACION_LIMITE.get(clave_glosario) if clave_glosario else None
     with st.container(key=key):
         etiqueta_modelo = f'<span class="tarjeta-modelo">{modelo}</span>' if modelo else ""
+        etiqueta_valor = term(f"{valor_pct:.0f}%", clave_glosario) if clave_glosario else f"{valor_pct:.0f}%"
         st.markdown(
-            f'<div class="tarjeta-header"><span class="tarjeta-titulo">{categoria}</span>{etiqueta_modelo}</div>',
+            f'<div class="tarjeta-header"><span class="tarjeta-titulo">{categoria}</span>'
+            f'<span class="tarjeta-titulo" style="color:{color};">{etiqueta_valor}</span>'
+            f'{etiqueta_modelo}</div>',
             unsafe_allow_html=True,
         )
-        col_anillo, col_barras, col_spark, col_datos = st.columns([1.1, 1.2, 1.5, 1.7])
-        with col_anillo:
-            st.plotly_chart(_grafico_anillo(valor_pct, color), config={"displayModeBar": False}, width="stretch")
-            etiqueta = f"USO {categoria.upper()}"
-            if clave_glosario:
-                st.markdown(f'<div class="mini-label">{term(etiqueta, clave_glosario)}</div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="mini-label">{etiqueta}</div>', unsafe_allow_html=True)
+        col_barras, col_spark, col_datos = st.columns([1.2, 1.7, 1.8])
         with col_barras:
             st.plotly_chart(_grafico_barras_mini(serie, color, umbral=umbral), config={"displayModeBar": False}, width="stretch")
+            st.markdown('<div class="mini-label">últimas lecturas</div>', unsafe_allow_html=True)
         with col_spark:
             st.plotly_chart(
                 _grafico_sparkline(serie, color, umbral=umbral),
@@ -296,7 +351,11 @@ def ir_a_guia(id_diagnostico):
 
 @_vista_en_vivo(run_every="1s")
 def vista_resumen():
-    st.title("💻 Estado de tu computador")
+    col_logo, col_titulo = st.columns([1, 14])
+    with col_logo:
+        st.image(str(RUTA_LOGO), width=48)
+    with col_titulo:
+        st.title("Estado de tu computador")
 
     estado, filas = cargar_datos()
 
@@ -343,6 +402,10 @@ def vista_resumen():
     serie_gpu = [float(p.get("gpu", 0) or 0) for p in historial_vivo if p.get("gpu") is not None]
 
     specs = _specs_equipo_cacheadas()
+
+    render_panel_general(estado, specs, cpu, ram, gpu, gpu_nombre, temperatura_cpu, temperatura_gpu, discos)
+
+    st.markdown("##### Detalle por componente")
 
     # --- Tarjeta CPU ---
     stats_cpu = []

@@ -2,13 +2,21 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime
 
+from logger_config import obtener_logger
+
+log = obtener_logger(__name__)
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = BASE_DIR / "data" / "pc_advisor.db"
 DB_PATH.parent.mkdir(exist_ok=True)
 
 
 def conectar():
-    return sqlite3.connect(DB_PATH)
+    try:
+        return sqlite3.connect(DB_PATH, timeout=5)
+    except sqlite3.Error:
+        log.exception("No se pudo conectar a la base de datos en %s", DB_PATH)
+        raise
 
 
 def crear_tabla():
@@ -48,12 +56,16 @@ def crear_tabla():
 
 def guardar_lectura(cpu, ram, temperatura, disco=None, gpu=None):
     conn = conectar()
-    conn.execute("""
-        INSERT INTO lecturas (cpu, ram, temperatura, disco, gpu)
-        VALUES (?, ?, ?, ?, ?)
-    """, (cpu, ram, temperatura, disco, gpu))
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute("""
+            INSERT INTO lecturas (cpu, ram, temperatura, disco, gpu)
+            VALUES (?, ?, ?, ?, ?)
+        """, (cpu, ram, temperatura, disco, gpu))
+        conn.commit()
+    except sqlite3.Error:
+        log.exception("No se pudo guardar la lectura (cpu=%s ram=%s)", cpu, ram)
+    finally:
+        conn.close()
 
 
 def obtener_ultimas_lecturas(n=10):

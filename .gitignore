@@ -1,5 +1,9 @@
 venv/
+.venv/
+.venv_pcadvisor/
 __pycache__/
 *.pyc
 data/
 .env
+build/
+dist/

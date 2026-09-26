@@ -24,6 +24,7 @@ a = Analysis(
     datas=[
         (str(BACKEND), "Backend"),
         (str(DESKTOP), "Desktop"),
+        (str(ROOT / "assets"), "assets"),
     ],
     hiddenimports=backend_modules,
     hookspath=[],

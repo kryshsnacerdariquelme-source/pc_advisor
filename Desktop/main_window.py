@@ -5,13 +5,18 @@ import time
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer, QRectF, QPointF
-from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QFont
+from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QFont, QPixmap, QIcon
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
     QGridLayout, QStackedWidget, QScrollArea, QMessageBox, QSizePolicy
 )
 
 ROOT = Path(__file__).resolve().parent.parent
+def ruta_logo():
+    base = Path(sys._MEIPASS) if getattr(sys, "frozen", False) else ROOT
+    return base / "assets" / "logo.png"
+
+LOGO_PATH = ruta_logo()
 BACKEND = ROOT / "Backend"
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
@@ -263,9 +268,16 @@ class MainWindow(QMainWindow):
         lay = QVBoxLayout(side)
         lay.setContentsMargins(18, 20, 18, 18)
 
-        title = QLabel("💻 PC Advisor")
+        title_row = QHBoxLayout()
+        if LOGO_PATH.exists():
+            logo_lbl = QLabel()
+            logo_lbl.setPixmap(QPixmap(str(LOGO_PATH)).scaledToHeight(28, Qt.SmoothTransformation))
+            title_row.addWidget(logo_lbl)
+        title = QLabel("PC Advisor")
         title.setObjectName("appTitle")
-        lay.addWidget(title)
+        title_row.addWidget(title)
+        title_row.addStretch()
+        lay.addLayout(title_row)
 
         self.nav_buttons = []
         for text in ("🏠  Resumen", "🗂️  Historial", "✅  Guía solución"):
@@ -281,9 +293,16 @@ class MainWindow(QMainWindow):
         mi.setObjectName("miEquipo")
         ml = QVBoxLayout(mi)
         ml.setContentsMargins(14, 12, 14, 12)
-        h = QLabel("💻 Mi Equipo")
+        h_row = QHBoxLayout()
+        if LOGO_PATH.exists():
+            h_logo = QLabel()
+            h_logo.setPixmap(QPixmap(str(LOGO_PATH)).scaledToHeight(16, Qt.SmoothTransformation))
+            h_row.addWidget(h_logo)
+        h = QLabel("Mi Equipo")
         h.setObjectName("miTitulo")
-        ml.addWidget(h)
+        h_row.addWidget(h)
+        h_row.addStretch()
+        ml.addLayout(h_row)
         filas = [
             ("Sistema operativo", self.specs.get("so")),
             ("Procesador", self.specs.get("cpu_modelo")),
@@ -320,9 +339,16 @@ class MainWindow(QMainWindow):
         outer.setContentsMargins(28, 22, 28, 22)
         outer.setSpacing(14)
 
-        title = QLabel("💻 Estado de tu computador")
+        title_row = QHBoxLayout()
+        if LOGO_PATH.exists():
+            page_logo = QLabel()
+            page_logo.setPixmap(QPixmap(str(LOGO_PATH)).scaledToHeight(32, Qt.SmoothTransformation))
+            title_row.addWidget(page_logo)
+        title = QLabel("Estado de tu computador")
         title.setObjectName("pageTitle")
-        outer.addWidget(title)
+        title_row.addWidget(title)
+        title_row.addStretch()
+        outer.addLayout(title_row)
 
         self.live_label = QLabel("🟡 Esperando lectura...")
         self.live_label.setObjectName("liveLabel")

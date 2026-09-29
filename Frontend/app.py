@@ -67,7 +67,45 @@ div[data-testid="stMetric"] {{ background-color: {COLOR_TARJETA}; border: 1px so
 .card {{ background-color: {COLOR_TARJETA}; border: 1px solid {COLOR_BORDE}; border-left: 4px solid {ACENTO_DISCO}; border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }}
 .badge-alto {{ background-color: #4A1414; color: #EF4444; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 13px; }}
 .badge-ok {{ background-color: #14351C; color: #22C55E; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 13px; }}
-.term {{ border-bottom: 1px dotted {COLOR_TEXTO_TENUE}; cursor: help; }}
+.term {{ position: relative; border-bottom: 1px dotted {COLOR_TEXTO_TENUE}; cursor: help; }}
+.term:hover::after {{
+    content: attr(data-tip);
+    position: absolute;
+    left: 50%;
+    bottom: 130%;
+    transform: translateX(-50%);
+    background: {COLOR_TARJETA};
+    color: {COLOR_TEXTO};
+    border: 1px solid {COLOR_BORDE};
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.4;
+    white-space: normal;
+    width: 240px;
+    z-index: 999;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+    pointer-events: none;
+}}
+.term:hover::before {{
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 118%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: {COLOR_BORDE};
+    z-index: 999;
+}}
+div[class*="st-key-panel_general"] {{
+    background-color: {COLOR_TARJETA};
+    border: 1px solid {COLOR_BORDE};
+    border-left: 4px solid {ACENTO_CPU};
+    border-radius: 12px;
+    padding: 18px 20px 6px 20px;
+    margin-bottom: 14px;
+}}
 .mi-equipo-fila {{ display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; border-bottom: 1px solid {COLOR_TRACK_ANILLO}; }}
 .mi-equipo-fila span:first-child {{ color: {COLOR_TEXTO_TENUE}; }}
 
@@ -115,7 +153,7 @@ def term(texto, clave):
     """Envuelve un texto en un <span> con tooltip nativo del navegador
     (aparece al posicionar el mouse encima), usando la explicación
     definida en GLOSARIO."""
-    return f'<span class="term" title="{GLOSARIO[clave]}">{texto}</span>'
+    return f'<span class="term" data-tip="{GLOSARIO[clave]}">{texto}</span>'
 
 
 @st.cache_data(show_spinner=False)
@@ -259,48 +297,84 @@ def render_panel_general(estado, specs, cpu, ram, gpu, gpu_nombre, temperatura_c
     """Panel superior estilo 'Hardware Monitoring': dos anillos grandes
     (CPU/GPU) a la izquierda y una lista de datos crudos a la derecha,
     inspirado en la captura de referencia que mandaste."""
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    col_cpu, col_gpu, col_lista = st.columns([1, 1, 1.6])
+    with st.container(key="panel_general"):
+        col_cpu, col_gpu, col_lista = st.columns([1, 1, 1.6])
 
-    with col_cpu:
-        st.plotly_chart(_grafico_anillo(cpu, ACENTO_CPU, altura=150, grosor_texto=26),
-                         config={"displayModeBar": False}, width="stretch")
-        st.markdown(f'<div class="mini-label">{term("USO DE CPU", "cpu")}</div>', unsafe_allow_html=True)
-
-    with col_gpu:
-        if gpu is not None:
-            st.plotly_chart(_grafico_anillo(gpu, ACENTO_GPU, altura=150, grosor_texto=26),
+        with col_cpu:
+            st.plotly_chart(_grafico_anillo(cpu, ACENTO_CPU, altura=150, grosor_texto=26),
                              config={"displayModeBar": False}, width="stretch")
-            st.markdown(f'<div class="mini-label">{term("USO DE GPU", "gpu")}</div>', unsafe_allow_html=True)
-        else:
-            st.plotly_chart(_grafico_anillo(0, ACENTO_GPU, altura=150, grosor_texto=26),
-                             config={"displayModeBar": False}, width="stretch")
-            st.markdown('<div class="mini-label">GPU no disponible</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="mini-label">{term("USO DE CPU", "cpu")}</div>', unsafe_allow_html=True)
 
-    with col_lista:
-        filas_lista = [("Uso de RAM", f"{ram:.0f}%")]
-        try:
-            hilos = psutil.cpu_count(logical=True)
-            frecuencia = psutil.cpu_freq()
-            if frecuencia and frecuencia.current:
-                filas_lista.append(("Frecuencia CPU", f"{frecuencia.current / 1000:.2f} GHz"))
-        except Exception:
-            pass
-        if temperatura_cpu:
-            filas_lista.append(("Temperatura CPU", f"{temperatura_cpu:.0f} °C"))
-        if temperatura_gpu:
-            filas_lista.append(("Temperatura GPU", f"{temperatura_gpu:.0f} °C"))
-        for disco in discos[:3]:
-            filas_lista.append((
-                disco.get("unidad", "Disco"),
-                f"{disco.get('usado_gb', 0):.0f} / {disco.get('total_gb', 0):.0f} GB · {disco.get('uso', 0):.0f}%",
-            ))
-        for etiqueta, valor in filas_lista:
-            st.markdown(
-                f'<div class="stat-fila"><span>{etiqueta}</span><strong>{valor}</strong></div>',
-                unsafe_allow_html=True,
-            )
-    st.markdown('</div>', unsafe_allow_html=True)
+        with col_gpu:
+            if gpu is not None:
+                st.plotly_chart(_grafico_anillo(gpu, ACENTO_GPU, altura=150, grosor_texto=26),
+                                 config={"displayModeBar": False}, width="stretch")
+                st.markdown(f'<div class="mini-label">{term("USO DE GPU", "gpu")}</div>', unsafe_allow_html=True)
+            else:
+                st.plotly_chart(_grafico_anillo(0, ACENTO_GPU, altura=150, grosor_texto=26),
+                                 config={"displayModeBar": False}, width="stretch")
+                st.markdown('<div class="mini-label">GPU no disponible</div>', unsafe_allow_html=True)
+
+        with col_lista:
+            filas_lista = [("Uso de RAM", f"{ram:.0f}%")]
+            try:
+                hilos = psutil.cpu_count(logical=True)
+                frecuencia = psutil.cpu_freq()
+                if frecuencia and frecuencia.current:
+                    filas_lista.append(("Frecuencia CPU", f"{frecuencia.current / 1000:.2f} GHz"))
+            except Exception:
+                pass
+            if temperatura_cpu:
+                filas_lista.append(("Temperatura CPU", f"{temperatura_cpu:.0f} °C"))
+            if temperatura_gpu:
+                filas_lista.append(("Temperatura GPU", f"{temperatura_gpu:.0f} °C"))
+            for disco in discos[:3]:
+                filas_lista.append((
+                    disco.get("unidad", "Disco"),
+                    f"{disco.get('usado_gb', 0):.0f} / {disco.get('total_gb', 0):.0f} GB · {disco.get('uso', 0):.0f}%",
+                ))
+            for etiqueta, valor in filas_lista:
+                st.markdown(
+                    f'<div class="stat-fila"><span>{etiqueta}</span><strong>{valor}</strong></div>',
+                    unsafe_allow_html=True,
+                )
+
+
+def calcular_puntaje_salud(cpu, ram, gpu, discos):
+    """Puntaje 0-100 que resume el estado general del equipo, penalizando
+    cada métrica según qué tan cerca está de su umbral de riesgo."""
+    disco_max = max((d.get("uso", 0) for d in discos), default=0)
+
+    def penalizacion(valor, umbral, peso):
+        inicio = umbral * 0.5
+        if valor is None or valor <= inicio:
+            return 0.0
+        fraccion = min(1.0, (valor - inicio) / (umbral - inicio))
+        return peso * fraccion
+
+    penalizaciones = {
+        "CPU": penalizacion(cpu, UMBRAL_CPU, 35),
+        "RAM": penalizacion(ram, UMBRAL_RAM, 35),
+        "GPU": penalizacion(gpu, UMBRAL_GPU_REFERENCIA, 15),
+        "Disco": penalizacion(disco_max, UMBRAL_DISCO_REFERENCIA, 15),
+    }
+    puntaje = round(max(0, 100 - sum(penalizaciones.values())))
+    peor = max(penalizaciones, key=penalizaciones.get)
+    hay_problema = penalizaciones[peor] > 5
+
+    if puntaje >= 80:
+        color, mensaje = "#22C55E", "Tu equipo está en buen estado."
+    elif puntaje >= 50:
+        color, mensaje = "#F59E0B", "Rendimiento aceptable, hay algo que vigilar."
+    else:
+        color, mensaje = "#EF4444", "Tu equipo necesita atención."
+
+    detalle = (
+        f"Lo que más influye: {peor} ({penalizaciones[peor]:.0f} pts en contra)."
+        if hay_problema else
+        "Todas las métricas están dentro de rangos normales."
+    )
+    return puntaje, color, mensaje, detalle
 
 
 def render_tarjeta_metrica(key, icono, categoria, modelo, valor_pct, color, serie, stats, clave_glosario=None, umbral=None):
@@ -328,7 +402,7 @@ def render_tarjeta_metrica(key, icono, categoria, modelo, valor_pct, color, seri
             )
             if umbral is not None:
                 st.markdown(
-                    f'<div class="mini-label">⚠️ <span class="term" title="{texto_umbral}">franja roja = zona de riesgo</span></div>',
+                    f'<div class="mini-label">⚠️ <span class="term" data-tip="{texto_umbral}">franja roja = zona de riesgo</span></div>',
                     unsafe_allow_html=True,
                 )
         with col_datos:
@@ -389,7 +463,7 @@ def vista_resumen():
         if st.session_state.get("alerta_descartada") != id_alerta:
             with st.container(border=True):
                 col_msg, col_ver, col_cerrar = st.columns([5, 2, 1])
-                col_msg.markdown(f"🔔 **PC Advisor** — {mensaje_alerta}")
+                col_msg.markdown(f"**PC Advisor** — {mensaje_alerta}")
                 if col_ver.button("Ver qué puedo hacer", key=f"ver_{id_alerta}", width="stretch"):
                     ir_a_guia(id_alerta)
                 if col_cerrar.button("Ahora no", key=f"cerrar_{id_alerta}", width="stretch"):
@@ -402,6 +476,16 @@ def vista_resumen():
     serie_gpu = [float(p.get("gpu", 0) or 0) for p in historial_vivo if p.get("gpu") is not None]
 
     specs = _specs_equipo_cacheadas()
+
+    puntaje, color_puntaje, mensaje_puntaje, detalle_puntaje = calcular_puntaje_salud(cpu, ram, gpu, discos)
+    st.markdown(
+        f'<div class="card" style="border-left-color:{color_puntaje};display:flex;align-items:center;gap:18px;">'
+        f'<div style="font-size:40px;font-weight:800;color:{color_puntaje};line-height:1;">{puntaje}</div>'
+        f'<div><div style="font-size:15px;font-weight:600;">{mensaje_puntaje}</div>'
+        f'<div style="font-size:12.5px;color:{COLOR_TEXTO_TENUE};">{detalle_puntaje}</div></div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
     render_panel_general(estado, specs, cpu, ram, gpu, gpu_nombre, temperatura_cpu, temperatura_gpu, discos)
 

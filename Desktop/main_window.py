@@ -129,6 +129,36 @@ class Sparkline(QWidget):
             p.drawLine(a, b)
 
 
+class MiniBars(QWidget):
+    def __init__(self, color):
+        super().__init__()
+        self.values = []
+        self.color = color
+        self.setMinimumHeight(80)
+
+    def set_values(self, values):
+        self.values = [max(0.0, min(100.0, float(v or 0))) for v in values[-8:]]
+        self.update()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        w, h = self.width(), self.height()
+        p.fillRect(self.rect(), QColor(COLOR_TARJETA))
+        if not self.values:
+            return
+        n = len(self.values)
+        gap = 6
+        bw = max(4, (w - gap * (n + 1)) / n)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(self.color))
+        x = gap
+        for v in self.values:
+            alto = (v / 100) * (h - 6)
+            p.drawRoundedRect(QRectF(x, h - alto - 3, bw, alto), 2, 2)
+            x += bw + gap
+
+
 class MetricCard(QFrame):
     def __init__(self, title, model, color, glossary_key, threshold):
         super().__init__()
@@ -138,7 +168,12 @@ class MetricCard(QFrame):
         self.title.setObjectName("cardTitle")
         self.model = QLabel(model or "")
         self.model.setObjectName("cardModel")
-        self.ring = RingWidget(color)
+        self.percent_label = QLabel("0%")
+        self.percent_label.setObjectName("cardPercent")
+        self.percent_label.setStyleSheet(f"color:{color}; font-weight:700; font-size:15px;")
+        self.bars = MiniBars(color)
+        self.bars_label = QLabel("últimas lecturas")
+        self.bars_label.setObjectName("miniLabel")
         self.chart = Sparkline(color, threshold)
         self.usage_label = QLabel(f"USO {title.upper()}")
         self.usage_label.setObjectName("miniLabel")
@@ -149,23 +184,22 @@ class MetricCard(QFrame):
 
         header = QHBoxLayout()
         header.addWidget(self.title)
+        header.addWidget(self.percent_label)
         header.addWidget(self.model)
         header.addStretch()
 
-        left = QVBoxLayout()
-        left.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-        left.addWidget(self.ring, 0, Qt.AlignHCenter)
-        left.addWidget(self.usage_label, 0, Qt.AlignHCenter)
+        col_bars = QVBoxLayout()
+        col_bars.addWidget(self.bars)
+        col_bars.addWidget(self.bars_label)
 
         middle = QVBoxLayout()
         middle.addWidget(self.chart)
         middle.addWidget(self.status)
 
         body = QHBoxLayout()
-        body.addLayout(left)
+        body.addLayout(col_bars, 1)
         body.addLayout(middle, 1)
         body.addLayout(self.stats, 1)
-
         root = QVBoxLayout(self)
         root.setContentsMargins(18, 12, 18, 12)
         root.addLayout(header)
@@ -174,7 +208,8 @@ class MetricCard(QFrame):
         self.setToolTip(GLOSARIO.get(glossary_key, ""))
 
     def update_card(self, value, series, stats):
-        self.ring.set_value(value)
+        self.percent_label.setText(f"{value:.0f}%")
+        self.bars.set_values(series)
         self.chart.set_values(series)
         text, color = estado_uso(value, self.chart.threshold or 90)
         self.status.setText(text)
@@ -268,19 +303,12 @@ class MainWindow(QMainWindow):
         lay = QVBoxLayout(side)
         lay.setContentsMargins(18, 20, 18, 18)
 
-        title_row = QHBoxLayout()
-        if LOGO_PATH.exists():
-            logo_lbl = QLabel()
-            logo_lbl.setPixmap(QPixmap(str(LOGO_PATH)).scaledToHeight(28, Qt.SmoothTransformation))
-            title_row.addWidget(logo_lbl)
         title = QLabel("PC Advisor")
         title.setObjectName("appTitle")
-        title_row.addWidget(title)
-        title_row.addStretch()
-        lay.addLayout(title_row)
+        lay.addWidget(title)
 
         self.nav_buttons = []
-        for text in ("🏠  Resumen", "🗂️  Historial", "✅  Guía solución"):
+        for text in ("Resumen", "Historial", "Guía solución"):
             b = QPushButton(text)
             b.setObjectName("navButton")
             b.setCheckable(True)
@@ -296,7 +324,7 @@ class MainWindow(QMainWindow):
         h_row = QHBoxLayout()
         if LOGO_PATH.exists():
             h_logo = QLabel()
-            h_logo.setPixmap(QPixmap(str(LOGO_PATH)).scaledToHeight(16, Qt.SmoothTransformation))
+            h_logo.setPixmap(QPixmap(str(LOGO_PATH)).scaledToHeight(24, Qt.SmoothTransformation))
             h_row.addWidget(h_logo)
         h = QLabel("Mi Equipo")
         h.setObjectName("miTitulo")
@@ -342,7 +370,7 @@ class MainWindow(QMainWindow):
         title_row = QHBoxLayout()
         if LOGO_PATH.exists():
             page_logo = QLabel()
-            page_logo.setPixmap(QPixmap(str(LOGO_PATH)).scaledToHeight(32, Qt.SmoothTransformation))
+            page_logo.setPixmap(QPixmap(str(LOGO_PATH)).scaledToHeight(80, Qt.SmoothTransformation))
             title_row.addWidget(page_logo)
         title = QLabel("Estado de tu computador")
         title.setObjectName("pageTitle")
@@ -366,22 +394,73 @@ class MainWindow(QMainWindow):
         self.alert_frame.hide()
         outer.addWidget(self.alert_frame)
 
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(14)
-        grid.setVerticalSpacing(12)
+        self.score_frame = QFrame()
+        self.score_frame.setObjectName("scoreCard")
+        sf = QHBoxLayout(self.score_frame)
+        sf.setContentsMargins(20, 16, 20, 16)
+        sf.setSpacing(16)
+        self.score_number = QLabel("--")
+        self.score_number.setObjectName("scoreNumber")
+        sf.addWidget(self.score_number)
+        score_text_col = QVBoxLayout()
+        self.score_mensaje = QLabel("")
+        self.score_mensaje.setObjectName("scoreMensaje")
+        self.score_detalle = QLabel("")
+        self.score_detalle.setObjectName("scoreDetalle")
+        self.score_detalle.setWordWrap(True)
+        score_text_col.addWidget(self.score_mensaje)
+        score_text_col.addWidget(self.score_detalle)
+        sf.addLayout(score_text_col, 1)
+        outer.addWidget(self.score_frame)
+
+        self.panel_general = QFrame()
+        self.panel_general.setObjectName("card")
+        pg = QHBoxLayout(self.panel_general)
+        pg.setContentsMargins(18, 16, 18, 16)
+        pg.setSpacing(20)
+
+        col_cpu = QVBoxLayout()
+        col_cpu.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.general_cpu_ring = RingWidget(ACENTO_CPU)
+        self.general_cpu_ring.setFixedSize(150, 150)
+        lbl_cpu = QLabel("USO DE CPU")
+        lbl_cpu.setObjectName("miniLabel")
+        col_cpu.addWidget(self.general_cpu_ring, 0, Qt.AlignHCenter)
+        col_cpu.addWidget(lbl_cpu, 0, Qt.AlignHCenter)
+
+        col_gpu = QVBoxLayout()
+        col_gpu.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.general_gpu_ring = RingWidget(ACENTO_GPU)
+        self.general_gpu_ring.setFixedSize(150, 150)
+        lbl_gpu = QLabel("USO DE GPU")
+        lbl_gpu.setObjectName("miniLabel")
+        col_gpu.addWidget(self.general_gpu_ring, 0, Qt.AlignHCenter)
+        col_gpu.addWidget(lbl_gpu, 0, Qt.AlignHCenter)
+
+        self.panel_stats = QVBoxLayout()
+        self.panel_stats.setSpacing(4)
+
+        pg.addLayout(col_cpu)
+        pg.addLayout(col_gpu)
+        pg.addLayout(self.panel_stats, 1)
+        outer.addWidget(self.panel_general)
+
+        seccion_detalle = QLabel("Detalle por componente")
+        seccion_detalle.setObjectName("sectionTitle")
+        outer.addWidget(seccion_detalle)
+
         self.cpu_card = MetricCard("CPU", self.specs.get("cpu_modelo"), ACENTO_CPU, "cpu", 90)
         self.ram_card = MetricCard("RAM", None, ACENTO_RAM, "ram", 85)
         self.gpu_card = MetricCard("GPU", self.specs.get("gpu"), ACENTO_GPU, "gpu", UMBRAL_GPU)
         self.disk_card = MetricCard("Disco", "Unidad principal", ACENTO_DISCO, "disco", UMBRAL_DISCO)
-        grid.addWidget(self.cpu_card, 0, 0)
-        grid.addWidget(self.ram_card, 0, 1)
-        grid.addWidget(self.gpu_card, 1, 0)
-        grid.addWidget(self.disk_card, 1, 1)
-        outer.addLayout(grid)
+        outer.addWidget(self.cpu_card)
+        outer.addWidget(self.ram_card)
+        outer.addWidget(self.gpu_card)
+        outer.addWidget(self.disk_card)
 
         temp_row = QHBoxLayout()
-        self.cpu_temp = TempCard("🌡️ Temperatura del procesador")
-        self.gpu_temp = TempCard("🎮 Temperatura de la tarjeta gráfica")
+        self.cpu_temp = TempCard("Temperatura del procesador")
+        self.gpu_temp = TempCard("Temperatura de la tarjeta gráfica")
         temp_row.addWidget(self.cpu_temp)
         temp_row.addWidget(self.gpu_temp)
         outer.addLayout(temp_row)
@@ -389,7 +468,7 @@ class MainWindow(QMainWindow):
         self.disks_frame = QFrame()
         self.disks_frame.setObjectName("card")
         self.disks_layout = QVBoxLayout(self.disks_frame)
-        self.disks_title = QLabel("💾 Unidades detectadas")
+        self.disks_title = QLabel("Unidades detectadas")
         self.disks_title.setObjectName("sectionTitle")
         self.disks_layout.addWidget(self.disks_title)
         outer.addWidget(self.disks_frame)
@@ -415,7 +494,7 @@ class MainWindow(QMainWindow):
         page = QWidget()
         lay = QVBoxLayout(page)
         lay.setContentsMargins(28, 22, 28, 22)
-        title = QLabel("🗂️ Historial")
+        title = QLabel("Historial")
         title.setObjectName("pageTitle")
         lay.addWidget(title)
         sub = QLabel("Diagnósticos y alertas generadas a partir de tus lecturas.")
@@ -430,7 +509,7 @@ class MainWindow(QMainWindow):
         page = QWidget()
         lay = QVBoxLayout(page)
         lay.setContentsMargins(28, 22, 28, 22)
-        title = QLabel("✅ Guía de solución")
+        title = QLabel("Guía de solución")
         title.setObjectName("pageTitle")
         lay.addWidget(title)
         self.guide_text = QLabel("Todavía no hay ningún diagnóstico generado.")
@@ -461,6 +540,39 @@ class MainWindow(QMainWindow):
 
         self._monitor_thread = threading.Thread(target=worker, name="PCAdvisorMonitor", daemon=True)
         self._monitor_thread.start()
+    def calcular_puntaje_salud(self, cpu, ram, gpu, discos):
+        disco_max = max((d.get("uso", 0) for d in discos), default=0)
+
+        def penalizacion(valor, umbral, peso):
+            inicio = umbral * 0.5
+            if valor is None or valor <= inicio:
+                return 0.0
+            fraccion = min(1.0, (valor - inicio) / (umbral - inicio))
+            return peso * fraccion
+
+        penalizaciones = {
+            "CPU": penalizacion(cpu, 90, 35),
+            "RAM": penalizacion(ram, 85, 35),
+            "GPU": penalizacion(gpu, UMBRAL_GPU, 15),
+            "Disco": penalizacion(disco_max, UMBRAL_DISCO, 15),
+        }
+        puntaje = round(max(0, 100 - sum(penalizaciones.values())))
+        peor = max(penalizaciones, key=penalizaciones.get)
+        hay_problema = penalizaciones[peor] > 5
+
+        if puntaje >= 80:
+            color, mensaje = "#22C55E", "Tu equipo está en buen estado."
+        elif puntaje >= 50:
+            color, mensaje = "#F59E0B", "Rendimiento aceptable, hay algo que vigilar."
+        else:
+            color, mensaje = "#EF4444", "Tu equipo necesita atención."
+
+        detalle = (
+            f"Lo que más influye: {peor} ({penalizaciones[peor]:.0f} pts en contra)."
+            if hay_problema else
+            "Todas las métricas están dentro de rangos normales."
+        )
+        return puntaje, color, mensaje, detalle
 
     def refresh(self):
         state = read_state()
@@ -518,6 +630,43 @@ class MainWindow(QMainWindow):
         self.disk_card.update_card(disco, self.history_series["disco"], [
             ("Capacidad total", f"{self.specs.get('disco_total_gb'):.0f} GB" if self.specs.get("disco_total_gb") else "No disponible")
         ])
+        puntaje, color_puntaje, mensaje_puntaje, detalle_puntaje = self.calcular_puntaje_salud(
+        cpu, ram, gpu if gpu_raw is not None else None, state.get("discos", [])
+        )
+        self.score_number.setText(str(puntaje))
+        self.score_number.setStyleSheet(f"color:{color_puntaje}; font-size:34px; font-weight:800;")
+        self.score_mensaje.setText(mensaje_puntaje)
+        self.score_detalle.setText(detalle_puntaje)
+        self.score_frame.setStyleSheet(
+            f"QFrame#scoreCard {{ background:{COLOR_TARJETA}; border:1px solid {COLOR_BORDE}; "
+            f"border-left:4px solid {color_puntaje}; border-radius:12px; }}"
+        )
+        self.general_cpu_ring.set_value(cpu)
+        self.general_gpu_ring.set_value(gpu if gpu_raw is not None else 0)
+        while self.panel_stats.count():
+            item = self.panel_stats.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        filas_generales = [("Uso de RAM", f"{ram:.0f}%"), ("Frecuencia CPU", self.cpu_frequency())]
+        if t_gpu:
+            filas_generales.append(("Temperatura GPU", f"{t_gpu:.0f} °C"))
+        for d in state.get("discos", [])[:3]:
+            filas_generales.append((
+                str(d.get("unidad", "Disco")),
+                f"{float(d.get('usado_gb',0)):.0f} / {float(d.get('total_gb',0)):.0f} GB · {float(d.get('uso',0)):.0f}%",
+            ))
+        for etiqueta, valor in filas_generales:
+            row = QWidget()
+            lay = QHBoxLayout(row)
+            lay.setContentsMargins(0, 0, 0, 0)
+            a = QLabel(etiqueta)
+            a.setObjectName("statLabel")
+            b = QLabel(valor)
+            b.setObjectName("statValue")
+            b.setAlignment(Qt.AlignRight)
+            lay.addWidget(a)
+            lay.addWidget(b)
+            self.panel_stats.addWidget(row)
         self.cpu_temp.set_value(t_cpu)
         self.gpu_temp.set_value(t_gpu)
         self.update_disks(state.get("discos", []))
@@ -658,7 +807,7 @@ QMainWindow, QWidget {{ background:{COLOR_FONDO}; color:{COLOR_TEXTO}; font-fami
 #connection {{ font-size:12px; }}
 #liveLabel {{ color:{COLOR_TEXTO_TENUE}; }}
 #alertFrame {{ background:#241D13; border:1px solid #6B4D18; border-radius:10px; padding:4px; }}
-QPushButton {{ background:{COLOR_TARJETA}; color:{COLOR_TEXTO}; border:1px solid {COLOR_BORDE}; border-radius:8px; padding:9px 12px; }}
+QToolTip {{ background:{COLOR_TARJETA}; color:{COLOR_TEXTO}; border:1px solid {COLOR_BORDE}; border-radius:8px; padding:8px 10px; font-size:12px; }}QPushButton {{ background:{COLOR_TARJETA}; color:{COLOR_TEXTO}; border:1px solid {COLOR_BORDE}; border-radius:8px; padding:9px 12px; }}
 QPushButton:hover {{ background:#263653; }}
 #guideText {{ background:{COLOR_TARJETA}; border:1px solid {COLOR_BORDE}; border-radius:12px; padding:20px; font-size:15px; }}
 QScrollArea {{ border:0; }}

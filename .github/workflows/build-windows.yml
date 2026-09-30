@@ -1,0 +1,60 @@
+# Compila PC Advisor en Windows y genera el .exe + el instalador, sin que
+# tengas que instalar nada en tu PC.
+#
+# Como usarlo: sube el proyecto a GitHub -> pestaña "Actions" ->
+# "Build Windows installer" -> "Run workflow". Al terminar, descarga el
+# instalador desde "Artifacts". Tambien se ejecuta solo al crear un tag v*.
+name: Build Windows installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-build.txt
+
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt -r requirements-build.txt
+
+      - name: Compilar el .exe con PyInstaller
+        run: python -m PyInstaller --noconfirm --clean PC_Advisor.spec
+
+      - name: Prueba de humo del .exe (abre la app y verifica que el monitor entrega datos)
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "dist\PC_Advisor\PC_Advisor.exe" -ArgumentList "--smoke-test" -PassThru
+          if (-not $p.WaitForExit(90000)) { $p.Kill(); throw "La app no termino la prueba de humo a tiempo" }
+          if ($p.ExitCode -ne 0) {
+            $log = Join-Path $env:LOCALAPPDATA "PC Advisor\data\pc_advisor.log"
+            if (Test-Path $log) { Get-Content $log -Tail 50 }
+            throw "La prueba de humo fallo (codigo $($p.ExitCode))"
+          }
+
+      - name: Instalar Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Crear el instalador
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\PC_Advisor.iss'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PC_Advisor_Setup
+          path: installer_output/*.exe
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PC_Advisor_portable
+          path: dist/PC_Advisor/

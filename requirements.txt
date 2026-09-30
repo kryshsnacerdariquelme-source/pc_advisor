@@ -1,0 +1,5 @@
+# Dependencias para EJECUTAR la app de escritorio (Desktop/main.py)
+PySide6>=6.6
+psutil>=5.9
+fpdf2>=2.7
+plyer>=2.1

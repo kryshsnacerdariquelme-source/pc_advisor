@@ -1,0 +1,16 @@
+venv/
+.venv/
+.venv_pcadvisor/
+__pycache__/
+*.pyc
+data/
+.env
+build/
+dist/
+*.log
+*.db
+.vscode/
+Thumbs.db
+# Compilacion
+.venv_build/
+*.spec.bak

@@ -8,7 +8,8 @@ from PySide6.QtCore import Qt, QTimer, QRectF, QPointF
 from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QFont, QPixmap, QIcon
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QFrame, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QGridLayout, QStackedWidget, QScrollArea, QMessageBox, QSizePolicy
+    QGridLayout, QStackedWidget, QScrollArea, QMessageBox, QSizePolicy,
+    QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QFileDialog
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -22,7 +23,8 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 from Desktop.hardware_reader import read_state, read_specs
-from database import obtener_historial, conectar, obtener_alerta_pendiente_mas_reciente
+from database import obtener_historial, conectar, obtener_alerta_pendiente_mas_reciente, obtener_ultimas_lecturas
+from reporte_pdf import generar_reporte_pdf
 
 COLOR_FONDO = "#0D1321"
 COLOR_TARJETA = "#151D30"
@@ -413,6 +415,10 @@ class MainWindow(QMainWindow):
         sf.addLayout(score_text_col, 1)
         outer.addWidget(self.score_frame)
 
+        self.pdf_button = QPushButton("Descargar reporte en PDF")
+        self.pdf_button.clicked.connect(self.exportar_pdf)
+        outer.addWidget(self.pdf_button)
+
         self.panel_general = QFrame()
         self.panel_general.setObjectName("card")
         pg = QHBoxLayout(self.panel_general)
@@ -500,6 +506,19 @@ class MainWindow(QMainWindow):
         sub = QLabel("Diagnósticos y alertas generadas a partir de tus lecturas.")
         sub.setObjectName("muted")
         lay.addWidget(sub)
+
+        tabla_titulo = QLabel("Últimas lecturas")
+        tabla_titulo.setObjectName("sectionTitle")
+        lay.addWidget(tabla_titulo)
+        self.lecturas_table = QTableWidget(0, 4)
+        self.lecturas_table.setHorizontalHeaderLabels(["CPU", "RAM", "GPU", "Disco"])
+        self.lecturas_table.verticalHeader().setVisible(False)
+        self.lecturas_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.lecturas_table.setSelectionMode(QAbstractItemView.NoSelection)
+        self.lecturas_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.lecturas_table.setFixedHeight(320)
+        lay.addWidget(self.lecturas_table)
+
         self.history_container = QVBoxLayout()
         lay.addLayout(self.history_container)
         lay.addStretch()
@@ -573,6 +592,36 @@ class MainWindow(QMainWindow):
             "Todas las métricas están dentro de rangos normales."
         )
         return puntaje, color, mensaje, detalle
+
+    def exportar_pdf(self):
+        try:
+            lecturas = obtener_ultimas_lecturas(15)
+        except Exception:
+            lecturas = []
+        alerta = obtener_alerta_pendiente_mas_reciente()
+        alertas = [alerta[3]] if alerta else []
+        state = read_state() or {}
+        cpu = float(state.get("cpu", 0) or 0)
+        ram = float(state.get("ram", 0) or 0)
+        gpu_raw = state.get("gpu")
+        gpu = float(gpu_raw) if gpu_raw is not None else None
+        discos = state.get("discos", []) or []
+        puntaje, color, mensaje, detalle = self.calcular_puntaje_salud(cpu, ram, gpu, discos)
+
+        ruta, _ = QFileDialog.getSaveFileName(
+            self, "Guardar reporte", "pc_advisor_reporte.pdf", "Archivos PDF (*.pdf)"
+        )
+        if not ruta:
+            return
+        try:
+            pdf_bytes = generar_reporte_pdf(
+                self.specs, puntaje, color, mensaje, detalle, cpu, ram, gpu, discos, lecturas, alertas
+            )
+            with open(ruta, "wb") as f:
+                f.write(pdf_bytes)
+            QMessageBox.information(self, "PC Advisor", "Reporte guardado correctamente.")
+        except Exception as e:
+            QMessageBox.warning(self, "PC Advisor", f"No se pudo generar el PDF:\n{e}")
 
     def refresh(self):
         state = read_state()
@@ -727,6 +776,23 @@ class MainWindow(QMainWindow):
             self.alert_frame.hide()
 
     def refresh_history(self):
+        try:
+            lecturas = obtener_ultimas_lecturas(15)
+        except Exception:
+            lecturas = []
+        self.lecturas_table.setRowCount(len(lecturas))
+        for fila, (cpu, ram, temperatura, disco, gpu) in enumerate(lecturas):
+            valores = [
+                f"{cpu:.0f}%" if cpu is not None else "N/D",
+                f"{ram:.0f}%" if ram is not None else "N/D",
+                f"{gpu:.0f}%" if gpu is not None else "N/D",
+                f"{disco:.0f}%" if disco is not None else "N/D",
+            ]
+            for col, valor in enumerate(valores):
+                item = QTableWidgetItem(valor)
+                item.setTextAlignment(Qt.AlignCenter)
+                self.lecturas_table.setItem(fila, col, item)
+
         while self.history_container.count():
             item = self.history_container.takeAt(0)
             if item.widget():

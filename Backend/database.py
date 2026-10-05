@@ -1,14 +1,11 @@
 import sqlite3
-from pathlib import Path
-from datetime import datetime
 
 from logger_config import obtener_logger
+from rutas import dir_datos
 
 log = obtener_logger(__name__)
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / "data" / "pc_advisor.db"
-DB_PATH.parent.mkdir(exist_ok=True)
+DB_PATH = dir_datos() / "pc_advisor.db"
 
 
 def conectar():
@@ -123,7 +120,7 @@ def guardar_recomendacion(tipo_diagnostico, mensaje, guia_solucion):
 def obtener_historial(limite=20):
     conn = conectar()
     cursor = conn.execute("""
-        SELECT id, fecha_hora, tipo_diagnostico, mensaje, guia_solucion, estado
+        SELECT id, datetime(fecha_hora, 'localtime'), tipo_diagnostico, mensaje, guia_solucion, estado
         FROM historial_recomendaciones
         ORDER BY id DESC LIMIT ?
     """, (limite,))
@@ -138,7 +135,7 @@ def obtener_alerta_pendiente_mas_reciente():
     operativo que ya se dispara al generarla)."""
     conn = conectar()
     fila = conn.execute("""
-        SELECT id, fecha_hora, tipo_diagnostico, mensaje, guia_solucion
+        SELECT id, datetime(fecha_hora, 'localtime'), tipo_diagnostico, mensaje, guia_solucion
         FROM historial_recomendaciones
         WHERE estado = 'pendiente'
         ORDER BY id DESC LIMIT 1
@@ -154,3 +151,22 @@ def marcar_resuelto(id_recomendacion):
     """, (id_recomendacion,))
     conn.commit()
     conn.close()
+
+
+def obtener_recomendacion(id_recomendacion=None):
+    """Devuelve (tipo, mensaje, guia, estado) de una recomendacion concreta,
+    o de la mas reciente si no se indica id. None si no hay ninguna."""
+    conn = conectar()
+    try:
+        if id_recomendacion:
+            return conn.execute(
+                "SELECT tipo_diagnostico, mensaje, guia_solucion, estado "
+                "FROM historial_recomendaciones WHERE id = ?",
+                (id_recomendacion,),
+            ).fetchone()
+        return conn.execute(
+            "SELECT tipo_diagnostico, mensaje, guia_solucion, estado "
+            "FROM historial_recomendaciones ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+    finally:
+        conn.close()

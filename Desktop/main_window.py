@@ -552,10 +552,11 @@ class MainWindow(QMainWindow):
             try:
                 import monitor
                 self._monitor_module = monitor
-                monitor.main()
+                monitor.main(verbose=False, escribir_archivo=False)
             except Exception as exc:
                 self._monitor_module = None
-                print(f"PC Advisor: error del monitor: {exc}")
+                from logger_config import obtener_logger
+                obtener_logger("main_window").error("Error del monitor: %s", exc)
 
         self._monitor_thread = threading.Thread(target=worker, name="PCAdvisorMonitor", daemon=True)
         self._monitor_thread.start()

@@ -146,6 +146,7 @@ GLOSARIO = {
     "temperatura": "Temperatura del procesador: sobre los 80°C sostenidos el equipo puede bajar su rendimiento a propósito para protegerse (throttling), o acortar la vida útil del hardware con el tiempo.",
     "disco": "Disco (almacenamiento): cuánto espacio ocupado tiene tu disco. Si está casi lleno, Windows no tiene espacio para archivos temporales y el equipo se puede volver lento aunque la RAM esté bien.",
     "gpu": "GPU (tarjeta gráfica): procesa gráficos y video. Un uso alto es normal jugando o editando video; si sube sin razón aparente puede valer la pena revisarlo.",
+    "vram": "Temperatura de memoria de la GPU cuando el hardware la expone.",
     "alto": "ALTO: el valor superó el umbral que se considera riesgoso (85% de uso de RAM).",
     "normal": "NORMAL: el uso está dentro de un rango saludable para el equipo.",
 }
@@ -554,8 +555,7 @@ def vista_resumen():
         if temperatura_gpu:
             stats_gpu.append(("Temp. GPU", f"{temperatura_gpu:.0f} °C", None))
         if temperatura_vram:
-            stats_gpu.append(("Temp. VRAM", f"{temperatura_vram:.0f} °C",
-                               "Temperatura de memoria de la GPU cuando el hardware la expone."))
+            stats_gpu.append(("Temp. VRAM", f"{temperatura_vram:.0f} °C", "vram"))
         render_tarjeta_metrica(
             key="tarjeta_gpu", icono="🎮", categoria="GPU", modelo=gpu_nombre,
             valor_pct=gpu, color=ACENTO_GPU, serie=serie_gpu, stats=stats_gpu, clave_glosario="gpu",

@@ -15,7 +15,7 @@ def main():
 
     print("\nHISTORIAL DE RECOMENDACIONES")
     print("=" * 60)
-    for fecha, tipo, mensaje, guia, estado in historial:
+    for _id, fecha, tipo, mensaje, guia, estado in historial:
         print(f"\n[{estado.upper()}] {fecha}")
         print(f"  {mensaje}")
         print(f"  Guia:\n" + "\n".join(f"    {l}" for l in guia.split("\n")))

@@ -44,6 +44,7 @@ def _powershell(comando: str, timeout: float = 4) -> str:
             capture_output=True,
             text=True,
             timeout=timeout,
+            stdin=subprocess.DEVNULL,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
         if resultado.returncode != 0 and resultado.stderr:
@@ -313,6 +314,7 @@ def _gpu_nvidia_smi() -> tuple[str | None, float | None, float | None]:
         resultado = subprocess.run(
             ["nvidia-smi", "--query-gpu=name,utilization.gpu,temperature.gpu", "--format=csv,noheader,nounits"],
             capture_output=True, text=True, timeout=2,
+            stdin=subprocess.DEVNULL,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
         if resultado.returncode != 0 or not resultado.stdout.strip():
@@ -326,11 +328,19 @@ def _gpu_nvidia_smi() -> tuple[str | None, float | None, float | None]:
         return None, None, None
 
 
+def _sensores_cacheados() -> list[dict]:
+    """Sensores LHM cada 2s. Si LHM no esta instalado/abierto (lista vacia),
+    se reintenta solo cada 20s en vez de lanzar PowerShell todo el tiempo."""
+    entrada = _CACHE.get("sensores_lhm")
+    ttl = 20.0 if (entrada is not None and not entrada[1]) else 2.0
+    return _con_cache("sensores_lhm", ttl, _leer_sensores_lhm)
+
+
 def obtener_estado_hardware() -> dict:
     """Una lectura coherente de todo el hardware dinámico."""
     # Sensores LHM y nvidia-smi cada 2s; el nombre de la GPU casi nunca
     # cambia en una sesion, asi que se refresca cada 30s solamente.
-    sensores = _con_cache("sensores_lhm", 2.0, _leer_sensores_lhm)
+    sensores = _sensores_cacheados()
 
     # CPU: psutil es la fuente de carga; el sensor de temperatura es LHM.
     try:
@@ -370,7 +380,7 @@ def obtener_estado_hardware() -> dict:
         "temperatura_vram": round(vram_temp, 1) if vram_temp is not None else 0.0,
         "disco": round(_disco_principal_porcentaje(), 1),
         "discos": discos,
-        "timestamp": __import__("time").time(),
+        "timestamp": _time.time(),
     }
 
 

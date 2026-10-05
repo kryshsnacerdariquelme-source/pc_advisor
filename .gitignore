@@ -11,3 +11,6 @@ dist/
 *.db
 .vscode/
 Thumbs.db
+# Compilacion
+.venv_build/
+*.spec.bak

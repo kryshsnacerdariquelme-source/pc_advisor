@@ -1,47 +1,71 @@
-PC ADVISOR - INSTRUCCIONES
-============================
+PC ADVISOR - APLICACION DE ESCRITORIO
+=====================================
 
-Como usarlo (no necesitas instalar nada a mano ni escribir codigo):
+PC Advisor es un programa de escritorio para Windows 10/11 (64 bits).
+Se abre como una aplicacion normal: NO usa el navegador.
 
-1. Copia toda esta carpeta "pc_advisor" a cualquier lugar del computador
-   (por ejemplo, al Escritorio).
 
-2. Haz DOBLE CLIC en el archivo:
+A) PARA QUIEN SOLO QUIERE USAR LA APP
+-------------------------------------
+1. Ejecuta el instalador  PC_Advisor_Setup_1.0.0.exe
+2. Sigue el asistente (Siguiente > Siguiente > Instalar).
+3. Abre "PC Advisor" desde el menu Inicio (o el acceso directo del Escritorio
+   si marcaste esa opcion).
 
-       Iniciar_PC_Advisor.bat
+No necesita instalar Python ni tener internet.
 
-3. La PRIMERA vez que lo abras:
-   - Si el equipo no tiene Python, se descargara e instalara solo
-     (necesita internet). Cuando termine, te pedira volver a abrir
-     el mismo archivo una segunda vez.
-   - Luego instalara automaticamente todo lo necesario para que la
-     app funcione. Esto puede tardar unos minutos, es normal.
-   - No hay que tocar nada, solo esperar.
+Nota: Windows SmartScreen puede mostrar "Windows protegio su PC" la primera
+vez porque el instalador no esta firmado digitalmente. Elige
+"Mas informacion" > "Ejecutar de todas formas".
 
-4. Las siguientes veces, con solo hacer doble clic en
-   "Iniciar_PC_Advisor.bat" la app abre directo en el navegador,
-   en segundos.
+Temperaturas de CPU/GPU: Windows no las expone directamente. Para verlas,
+instala "Libre Hardware Monitor" (https://librehardwaremonitor.org) y dejalo
+abierto ejecutandolo como administrador. Sin el, la app funciona igual y esos
+datos aparecen como no disponibles.
 
-5. Para cerrar la app, simplemente cierra la ventana negra
-   (la consola) que se abrio.
+Donde guarda sus datos (historial, log):
+    %LOCALAPPDATA%\PC Advisor\data
 
-Sugerencia: puedes crear un acceso directo en el Escritorio.
-   - Clic derecho sobre "Iniciar_PC_Advisor.bat"
-   - "Enviar a" > "Escritorio (crear acceso directo)"
-   Asi la persona solo ve un icono con el que abre la app,
-   sin ver carpetas ni archivos tecnicos.
 
-Requisitos:
-   - Windows 10 u 11 (64 bits).
-   - Conexion a internet SOLO la primera vez que se abre.
-   - Despues de la primera vez, funciona sin internet.
+B) PARA QUIEN CREA EL .EXE Y EL INSTALADOR (en un PC con Windows)
+-----------------------------------------------------------------
+Requisitos (una sola vez):
+  - Python 3.12 de 64 bits (https://www.python.org/downloads/), marcando
+    "Add python.exe to PATH" al instalar.
+  - Inno Setup 6.3 o superior, gratis (https://jrsoftware.org/isdl.php).
 
-Notas:
-   - Algunos sensores (temperatura de CPU/GPU) requieren tener
-     instalado "Libre Hardware Monitor" corriendo en el equipo;
-     si no esta, la app funciona igual pero esos datos pueden
-     aparecer como "No disponible".
-   - Windows Defender / SmartScreen puede mostrar una advertencia
-     la primera vez porque el archivo .bat no esta firmado
-     digitalmente. Es normal en scripts caseros: hay que elegir
-     "Mas informacion" > "Ejecutar de todas formas".
+Pasos:
+  1. Doble clic en   build_exe.bat
+        -> genera  dist\PC_Advisor\PC_Advisor.exe
+        (prueba rapida: abrelo, debe abrir una ventana, no el navegador)
+  2. Doble clic en   build_installer.bat
+        -> genera  installer_output\PC_Advisor_Setup_1.0.0.exe
+        Ese es el unico archivo que hay que entregar a los demas.
+
+Alternativa sin instalar nada: sube el proyecto a GitHub y ejecuta el flujo
+"Build Windows installer" (pestana Actions > Run workflow). Descargas el
+instalador ya compilado desde "Artifacts". Ese flujo tambien abre el .exe y
+comprueba que el monitor entrega datos antes de crear el instalador.
+
+Para publicar una nueva version: cambia MyAppVersion en
+installer\PC_Advisor.iss (por ejemplo a 1.1.0) y repite los pasos.
+NO cambies el AppId: gracias a el, el instalador nuevo actualiza al anterior.
+
+
+C) PARA DESARROLLAR / PROBAR DESDE EL CODIGO
+--------------------------------------------
+  - Doble clic en  Iniciar_PC_Advisor.bat   (crea el entorno la primera vez y
+    abre la app de escritorio), o bien:
+        pip install -r requirements.txt
+        python Desktop\main.py
+  - Los datos se guardan en la carpeta  data\  del proyecto.
+  - Version web de referencia (Streamlit), opcional: ver requirements-web.txt.
+
+
+ESTRUCTURA
+----------
+  Backend\     Lectura de hardware, base de datos, diagnostico, reporte PDF.
+  Desktop\     Interfaz de escritorio (PySide6): main_window, main.
+  Frontend\    Version web en Streamlit (referencia visual de la interfaz).
+  installer\   Script de Inno Setup del instalador.
+  assets\      Logo e icono.

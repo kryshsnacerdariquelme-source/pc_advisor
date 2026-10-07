@@ -1,0 +1,2 @@
+# Dependencias EXTRA solo para generar el .exe
+pyinstaller>=6.6

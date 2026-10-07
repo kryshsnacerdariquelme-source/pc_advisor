@@ -1,0 +1,101 @@
+﻿POLÍTICA DE PRIVACIDAD DE PC ADVISOR
+Versión 1.0 - Última actualización: [FECHA]
+
+En PC Advisor cuidamos tu información. Este documento explica, en palabras simples, qué datos usa el programa, para qué, dónde se guardan y cómo puedes borrarlos.
+
+
+1. EN RESUMEN
+
+  - Todo ocurre en tu computador. PC Advisor NO envía tus datos a internet, no tiene servidores propios, ni cuentas, ni registro de usuarios.
+  - No vendemos ni compartimos tu información con nadie.
+  - No incluye publicidad ni herramientas de análisis o seguimiento.
+  - Tú controlas tus datos y puedes borrarlos cuando quieras.
+
+
+2. RESPONSABLE
+
+[NOMBRE DEL TITULAR / EMPRESA]
+Contacto para consultas sobre privacidad: [CORREO DE CONTACTO]
+
+
+3. QUÉ INFORMACIÓN USA EL PROGRAMA
+
+a) Lecturas de rendimiento: porcentaje de uso de CPU, RAM, disco y GPU, y temperaturas cuando el equipo las entrega. Se registran periódicamente mientras el programa está abierto.
+
+b) Características del equipo: sistema operativo, modelo de procesador, tarjeta gráfica, placa madre, cantidad de memoria RAM y capacidad de disco.
+
+c) Diagnósticos y recomendaciones: los avisos que el programa genera, con su fecha y estado (pendiente o resuelto). Algunos avisos pueden incluir el nombre de los programas que más memoria están usando en ese momento.
+
+d) Registro de errores (archivo de log): mensajes técnicos que ayudan a entender por qué algo falló. Pueden incluir rutas de archivos o mensajes del sistema.
+
+e) Registro de aceptación: la fecha y la versión de estos documentos que aceptaste.
+
+f) Reportes en PDF: solo se crean cuando tú lo pides y se guardan donde tú elijas.
+
+PC Advisor NO accede a tus documentos, fotos, contraseñas, correos, historial de navegación ni contenido personal. No pide tu nombre, correo ni ningún dato de identificación.
+
+
+4. PARA QUÉ SE USA
+
+  - Mostrarte el estado actual de tu equipo y su puntaje de salud.
+  - Detectar problemas y entregarte recomendaciones.
+  - Mostrar tendencias y el historial de avisos.
+  - Resolver errores del programa.
+  - Dejar constancia de que aceptaste estos documentos.
+
+
+5. DÓNDE SE GUARDA
+
+Todo se guarda únicamente en tu computador, en la carpeta:
+
+    %LOCALAPPDATA%\PC Advisor\data
+
+Allí están la base de datos del historial, el archivo de log y el registro de aceptación. La información no sale de tu equipo salvo que tú mismo copies o compartas un archivo (por ejemplo, un reporte en PDF).
+
+
+6. CONEXIONES A INTERNET
+
+PC Advisor no necesita internet para funcionar y no envía datos. El único enlace del programa (hacia el sitio de Libre Hardware Monitor) se abre en tu navegador solo si tú haces clic, y desde ese momento rige la política de ese sitio.
+
+Si en el futuro se agregaran funciones que envíen datos fuera de tu equipo, se informará en una nueva versión de esta política y se te pedirá aceptarla de nuevo antes de usarlas.
+
+
+7. COMPARTIR INFORMACIÓN
+
+No vendemos, alquilamos ni cedemos tu información a terceros. Solo podría revelarse si una autoridad competente lo exigiera conforme a la ley, y únicamente si el Titular tuviera acceso a ella, lo que normalmente no ocurre porque los datos permanecen en tu equipo.
+
+
+8. CUÁNTO TIEMPO SE CONSERVA
+
+Los datos se mantienen en tu computador hasta que tú los borres. El archivo de log se rota automáticamente y conserva solo unos pocos respaldos de tamaño limitado.
+
+
+9. TUS DERECHOS Y CÓMO BORRAR TUS DATOS
+
+Eres dueño de tus datos. Puedes:
+  - Ver tus datos: están en la carpeta indicada en el punto 5.
+  - Borrarlos: al desinstalar PC Advisor, el desinstalador te pregunta si quieres eliminar también el historial y los datos. También puedes borrar manualmente la carpeta "PC Advisor" dentro de %LOCALAPPDATA%.
+  - Retirar tu aceptación: dejando de usar el programa y desinstalándolo.
+  - Consultar o ejercer cualquier derecho que la legislación chilena de protección de datos personales te reconozca escribiendo a [CORREO DE CONTACTO].
+
+Como el Titular no recibe ni almacena tus datos, la mayor parte de estos derechos los ejerces directamente sobre los archivos de tu propio equipo.
+
+
+10. SEGURIDAD
+
+Los datos quedan protegidos por los mismos mecanismos de tu cuenta de Windows. Te recomendamos mantener tu equipo actualizado y con una contraseña de acceso. Si compartes el computador con otras personas, ellas podrían ver el historial según los permisos de su cuenta.
+
+
+11. MENORES DE EDAD
+
+PC Advisor no está dirigido a menores ni recolecta datos personales de identificación. Si lo usa un menor, recomendamos que sea con supervisión de un adulto responsable del equipo.
+
+
+12. CAMBIOS A ESTA POLÍTICA
+
+Podemos actualizar esta política. Si el cambio es importante, el programa te mostrará la nueva versión y te pedirá aceptarla antes de continuar.
+
+
+13. CONTACTO
+
+Para dudas sobre privacidad: [CORREO DE CONTACTO].

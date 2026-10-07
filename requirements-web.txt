@@ -1,0 +1,7 @@
+# Solo si quieres correr la version web de referencia (Frontend/app.py):
+#   pip install -r requirements.txt -r requirements-web.txt
+#   python Backend/monitor.py        (en una consola)
+#   streamlit run Frontend/app.py    (en otra consola)
+streamlit>=1.40
+plotly>=5.24
+pillow>=10.4

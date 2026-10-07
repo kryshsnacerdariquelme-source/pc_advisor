@@ -1,0 +1,89 @@
+PC ADVISOR - APLICACION DE ESCRITORIO
+=====================================
+
+PC Advisor es un programa de escritorio para Windows 10/11 (64 bits).
+Se abre como una aplicacion normal: NO usa el navegador.
+
+
+A) PARA QUIEN SOLO QUIERE USAR LA APP
+-------------------------------------
+1. Ejecuta el instalador  PC_Advisor_Setup_1.0.0.exe
+2. Sigue el asistente. Debes aceptar los Terminos y condiciones y la
+   Politica de privacidad para poder continuar.
+3. Abre "PC Advisor" desde el menu Inicio (o el acceso directo del Escritorio
+   si marcaste esa opcion).
+
+No necesita instalar Python ni tener internet.
+
+La primera vez que abras la app tambien se te pedira aceptar ambos
+documentos (si no los aceptas, la app se cierra). Puedes releerlos despues
+con el boton "Terminos y privacidad" de la barra lateral.
+
+Nota: Windows SmartScreen puede mostrar "Windows protegio su PC" la primera
+vez porque el instalador no esta firmado digitalmente. Elige
+"Mas informacion" > "Ejecutar de todas formas".
+
+Temperaturas de CPU/GPU: Windows no las expone directamente. Para verlas,
+instala "Libre Hardware Monitor" (https://librehardwaremonitor.org) y dejalo
+abierto ejecutandolo como administrador. Sin el, la app funciona igual y esos
+datos aparecen como no disponibles.
+
+Donde guarda sus datos (historial, log):
+    %LOCALAPPDATA%\PC Advisor\data
+
+
+B) PARA QUIEN CREA EL .EXE Y EL INSTALADOR (en un PC con Windows)
+-----------------------------------------------------------------
+Requisitos (una sola vez):
+  - Python 3.12 de 64 bits (https://www.python.org/downloads/), marcando
+    "Add python.exe to PATH" al instalar.
+  - Inno Setup 6.3 o superior, gratis (https://jrsoftware.org/isdl.php).
+
+Pasos:
+  1. Doble clic en   build_exe.bat
+        -> genera  dist\PC_Advisor\PC_Advisor.exe
+        (prueba rapida: abrelo, debe abrir una ventana, no el navegador)
+  2. Doble clic en   build_installer.bat
+        -> genera  installer_output\PC_Advisor_Setup_1.0.0.exe
+        Ese es el unico archivo que hay que entregar a los demas.
+
+Alternativa sin instalar nada: sube el proyecto a GitHub y ejecuta el flujo
+"Build Windows installer" (pestana Actions > Run workflow). Descargas el
+instalador ya compilado desde "Artifacts". Ese flujo tambien abre el .exe y
+comprueba que el monitor entrega datos antes de crear el instalador.
+
+Para publicar una nueva version: cambia MyAppVersion en
+installer\PC_Advisor.iss (por ejemplo a 1.1.0) y repite los pasos.
+NO cambies el AppId: gracias a el, el instalador nuevo actualiza al anterior.
+
+
+C) PARA DESARROLLAR / PROBAR DESDE EL CODIGO
+--------------------------------------------
+  - Doble clic en  Iniciar_PC_Advisor.bat   (crea el entorno la primera vez y
+    abre la app de escritorio), o bien:
+        pip install -r requirements.txt
+        python Desktop\main.py
+  - Los datos se guardan en la carpeta  data\  del proyecto.
+  - Version web de referencia (Streamlit), opcional: ver requirements-web.txt.
+
+
+TERMINOS Y PRIVACIDAD (para quien publica la app)
+-------------------------------------------------
+  - Los textos estan en  legal\  (se muestran en el instalador y en la app).
+  - ANTES DE PUBLICAR: reemplaza los marcadores [NOMBRE DEL TITULAR / EMPRESA],
+    [CORREO DE CONTACTO] y [FECHA] en ambos archivos, y haz que un abogado
+    los revise.
+  - Si cambias los textos de forma importante, sube VERSION_LEGAL en
+    Desktop\consentimiento.py: a todos se les volvera a pedir aceptar.
+  - La aceptacion queda en  %LOCALAPPDATA%\PC Advisor\data\consentimiento.json
+  - Instalacion silenciosa (/SILENT): el asistente no se muestra, pero la app
+    pedira la aceptacion igual en su primer uso.
+
+ESTRUCTURA
+----------
+  Backend\     Lectura de hardware, base de datos, diagnostico, reporte PDF.
+  Desktop\     Interfaz de escritorio (PySide6): theme, widgets, main_window, main.
+  Frontend\    Version web en Streamlit (referencia visual de la interfaz).
+  legal\       Terminos y condiciones + Politica de privacidad.
+  installer\   Script de Inno Setup del instalador.
+  assets\      Logo e icono.

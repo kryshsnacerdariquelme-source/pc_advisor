@@ -1,0 +1,172 @@
+import sqlite3
+
+from logger_config import obtener_logger
+from rutas import dir_datos
+
+log = obtener_logger(__name__)
+
+DB_PATH = dir_datos() / "pc_advisor.db"
+
+
+def conectar():
+    try:
+        return sqlite3.connect(DB_PATH, timeout=5)
+    except sqlite3.Error:
+        log.exception("No se pudo conectar a la base de datos en %s", DB_PATH)
+        raise
+
+
+def crear_tabla():
+    conn = conectar()
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS lecturas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
+            cpu REAL,
+            ram REAL,
+            temperatura REAL,
+            disco REAL,
+            gpu REAL
+        )
+    """)
+
+    columnas_existentes = {fila[1] for fila in conn.execute("PRAGMA table_info(lecturas)")}
+    for columna in ("disco", "gpu"):
+        if columna not in columnas_existentes:
+            conn.execute(f"ALTER TABLE lecturas ADD COLUMN {columna} REAL")
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS historial_recomendaciones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
+            tipo_diagnostico TEXT,
+            mensaje TEXT,
+            guia_solucion TEXT,
+            estado TEXT DEFAULT 'pendiente'
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+def guardar_lectura(cpu, ram, temperatura, disco=None, gpu=None):
+    conn = conectar()
+    try:
+        conn.execute("""
+            INSERT INTO lecturas (cpu, ram, temperatura, disco, gpu)
+            VALUES (?, ?, ?, ?, ?)
+        """, (cpu, ram, temperatura, disco, gpu))
+        conn.commit()
+    except sqlite3.Error:
+        log.exception("No se pudo guardar la lectura (cpu=%s ram=%s)", cpu, ram)
+    finally:
+        conn.close()
+
+
+def obtener_ultimas_lecturas(n=10):
+    """Trae las últimas n lecturas para evaluar si el uso fue sostenido,
+    no solo un valor puntual."""
+    conn = conectar()
+    cursor = conn.execute("""
+        SELECT cpu, ram, temperatura, disco, gpu FROM lecturas
+        ORDER BY id DESC LIMIT ?
+    """, (n,))
+    filas = cursor.fetchall()
+    conn.close()
+    return filas
+
+
+def obtener_promedios_diarios_ram(dias=30):
+    """Promedio diario de RAM de los últimos `dias` días. Se usa para
+    proyectar si la tendencia de uso va en aumento (RF-08: evaluar
+    capacidad futura)."""
+    conn = conectar()
+    filas = conn.execute("""
+        SELECT date(fecha_hora) AS dia, AVG(ram)
+        FROM lecturas
+        WHERE fecha_hora >= date('now', ?)
+        GROUP BY dia
+        ORDER BY dia ASC
+    """, (f'-{dias} days',)).fetchall()
+    conn.close()
+    return filas
+
+
+def guardar_recomendacion(tipo_diagnostico, mensaje, guia_solucion):
+    """Guarda un diagnóstico en el historial, evitando duplicar el mismo
+    tipo de alerta si ya hay una pendiente reciente (para no spamear)."""
+    conn = conectar()
+    ya_existe = conn.execute("""
+        SELECT id FROM historial_recomendaciones
+        WHERE tipo_diagnostico = ? AND estado = 'pendiente'
+        ORDER BY id DESC LIMIT 1
+    """, (tipo_diagnostico,)).fetchone()
+
+    if ya_existe:
+        conn.close()
+        return False
+
+    conn.execute("""
+        INSERT INTO historial_recomendaciones (tipo_diagnostico, mensaje, guia_solucion)
+        VALUES (?, ?, ?)
+    """, (tipo_diagnostico, mensaje, guia_solucion))
+    conn.commit()
+    conn.close()
+    return True
+
+
+def obtener_historial(limite=20):
+    conn = conectar()
+    cursor = conn.execute("""
+        SELECT id, datetime(fecha_hora, 'localtime'), tipo_diagnostico, mensaje, guia_solucion, estado
+        FROM historial_recomendaciones
+        ORDER BY id DESC LIMIT ?
+    """, (limite,))
+    filas = cursor.fetchall()
+    conn.close()
+    return filas
+
+
+def obtener_alerta_pendiente_mas_reciente():
+    """Trae la alerta pendiente mas reciente, para mostrarla como aviso
+    dentro de la propia app (ademas de la notificacion del sistema
+    operativo que ya se dispara al generarla)."""
+    conn = conectar()
+    fila = conn.execute("""
+        SELECT id, datetime(fecha_hora, 'localtime'), tipo_diagnostico, mensaje, guia_solucion
+        FROM historial_recomendaciones
+        WHERE estado = 'pendiente'
+        ORDER BY id DESC LIMIT 1
+    """).fetchone()
+    conn.close()
+    return fila
+
+
+def marcar_resuelto(id_recomendacion):
+    conn = conectar()
+    conn.execute("""
+        UPDATE historial_recomendaciones SET estado = 'resuelto' WHERE id = ?
+    """, (id_recomendacion,))
+    conn.commit()
+    conn.close()
+
+
+def obtener_recomendacion(id_recomendacion=None):
+    """Devuelve (tipo, mensaje, guia, estado) de una recomendacion concreta,
+    o de la mas reciente si no se indica id. None si no hay ninguna."""
+    conn = conectar()
+    try:
+        if id_recomendacion:
+            return conn.execute(
+                "SELECT tipo_diagnostico, mensaje, guia_solucion, estado "
+                "FROM historial_recomendaciones WHERE id = ?",
+                (id_recomendacion,),
+            ).fetchone()
+        return conn.execute(
+            "SELECT tipo_diagnostico, mensaje, guia_solucion, estado "
+            "FROM historial_recomendaciones ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+    finally:
+        conn.close()

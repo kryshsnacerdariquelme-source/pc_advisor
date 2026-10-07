@@ -1,0 +1,82 @@
+﻿TÉRMINOS Y CONDICIONES DE USO DE PC ADVISOR
+Versión 1.0 - Última actualización: [FECHA]
+
+Lee con atención este documento antes de instalar o usar PC Advisor. Al instalar o usar el programa declaras que lo leíste y que lo aceptas. Si no estás de acuerdo, no instales ni uses PC Advisor.
+
+
+1. ¿QUÉ ES PC ADVISOR?
+
+PC Advisor es un programa de escritorio para Windows que observa el rendimiento de tu computador (uso de procesador, memoria, disco y tarjeta gráfica, y temperaturas cuando están disponibles), te muestra un puntaje de salud y te entrega recomendaciones en lenguaje simple para mejorar el funcionamiento del equipo.
+
+El titular del programa es [NOMBRE DEL TITULAR / EMPRESA] (en adelante, "el Titular"). Contacto: [CORREO DE CONTACTO].
+
+
+2. LICENCIA DE USO
+
+El Titular te otorga una licencia personal, no exclusiva, intransferible y revocable para instalar y usar PC Advisor en los computadores que tú poseas o administres, con fines personales o internos.
+
+Queda prohibido, salvo autorización escrita del Titular o que la ley lo permita expresamente:
+  a) vender, arrendar o redistribuir el programa como propio;
+  b) modificar, descompilar o intentar obtener su código fuente;
+  c) eliminar avisos de autoría o de derechos del programa;
+  d) usar el programa para fines ilegales.
+
+
+3. LO QUE PC ADVISOR HACE EN TU EQUIPO
+
+Para funcionar, PC Advisor:
+  - lee el uso de CPU, RAM, disco y GPU, y las temperaturas que el equipo exponga;
+  - consulta datos del equipo (sistema operativo, modelo de procesador, tarjeta gráfica, placa madre, memoria y capacidad de disco) usando herramientas del propio Windows, como PowerShell y WMI;
+  - guarda un historial de lecturas y recomendaciones en tu computador;
+  - muestra notificaciones de Windows cuando detecta un posible problema;
+  - puede generar un reporte en PDF cuando tú lo solicitas.
+
+El programa NO instala, elimina ni modifica programas o archivos de tu equipo por su cuenta. Las soluciones que sugiere son guías que tú decides si aplicas o no.
+
+
+4. LAS RECOMENDACIONES SON ORIENTATIVAS
+
+Las recomendaciones, puntajes y diagnósticos de PC Advisor se basan en lecturas automáticas y en umbrales de referencia. Son orientativos y NO reemplazan la revisión de un técnico profesional.
+
+  - Una lectura puede ser inexacta o no estar disponible (por ejemplo, las temperaturas dependen de que Windows o un programa externo las entregue).
+  - Antes de aplicar cualquier solución, especialmente si implica desinstalar programas, cambiar configuraciones, abrir el equipo o borrar archivos, asegúrate de entenderla y respalda tu información importante.
+  - Si tu equipo tiene un problema grave (sobrecalentamiento persistente, ruidos extraños, fallos al encender), consulta a un servicio técnico.
+
+
+5. PROGRAMAS DE TERCEROS
+
+Para mostrar temperaturas, PC Advisor puede leer datos de programas de terceros como Libre Hardware Monitor, que es independiente y se rige por sus propios términos. El Titular no controla ni se responsabiliza por esos programas. Instalarlos es una decisión tuya.
+
+
+6. EXCLUSIÓN DE GARANTÍAS Y LIMITACIÓN DE RESPONSABILIDAD
+
+PC Advisor se entrega "tal cual" y "según disponibilidad", sin garantía de que funcione sin errores ni interrupciones, ni de que sus diagnósticos sean completos o exactos.
+
+En la medida máxima que permita la ley, el Titular no será responsable por pérdida de datos, fallas del equipo, interrupciones de trabajo, ni por daños directos o indirectos derivados del uso del programa o de seguir sus recomendaciones. Nada en estos términos limita los derechos irrenunciables que la ley chilena de protección de los derechos de los consumidores te reconozca, cuando corresponda.
+
+
+7. PRIVACIDAD
+
+El tratamiento de tu información se explica en la Política de Privacidad, que forma parte de estos términos y que también debes aceptar.
+
+
+8. PROPIEDAD INTELECTUAL
+
+PC Advisor, su nombre, logo, diseño y código pertenecen al Titular o a sus licenciantes. Estos términos no te transfieren ningún derecho de propiedad sobre ellos, salvo la licencia de uso del punto 2.
+
+
+9. ACTUALIZACIONES Y CAMBIOS
+
+El Titular puede publicar nuevas versiones del programa y modificar estos términos. Si los cambios son importantes, el programa te pedirá aceptar la nueva versión antes de seguir usándolo.
+
+
+10. TERMINACIÓN
+
+Puedes dejar de usar PC Advisor en cualquier momento desinstalándolo. El Titular puede poner fin a tu licencia si incumples estos términos. Al terminar, debes dejar de usar el programa.
+
+
+11. LEY APLICABLE Y CONTACTO
+
+Estos términos se rigen por las leyes de la República de Chile. Cualquier controversia se someterá a los tribunales ordinarios de justicia competentes, sin perjuicio de los derechos que la ley te otorgue como consumidor.
+
+Para consultas: [CORREO DE CONTACTO].

@@ -488,7 +488,14 @@ def specs_estaticas():
     so = f"{platform.system()} {platform.release()}"
     cpu_modelo = platform.processor() or "No disponible"
     placa_madre = "No disponible"
+    fabricante_equipo = None
+    modelo_equipo = None
+    bios_version = None
     if platform.system() == "Windows":
+        # Fabricante y modelo del equipo (lo que pide un servicio técnico)
+        fabricante_equipo = _wmi_valor("Win32_ComputerSystem", "Manufacturer")
+        modelo_equipo = _wmi_valor("Win32_ComputerSystem", "Model")
+        bios_version = _wmi_valor("Win32_BIOS", "SMBIOSBIOSVersion")
         cpu_wmi = _wmi_valor("Win32_Processor", "Name")
         if cpu_wmi:
             cpu_modelo = cpu_wmi
@@ -514,4 +521,9 @@ def specs_estaticas():
         "disco_total_gb": disco_total_gb,
         "placa_madre": placa_madre,
         "gpu": gpu,
+        "fabricante_equipo": fabricante_equipo,
+        "modelo_equipo": modelo_equipo,
+        "bios_version": bios_version,
+        "nucleos": psutil.cpu_count(logical=False),
+        "hilos": psutil.cpu_count(logical=True),
     }

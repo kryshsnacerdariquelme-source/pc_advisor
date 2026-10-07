@@ -29,6 +29,8 @@ ArchitecturesInstallIn64BitMode=x64compatible
 ; El asistente permite elegir "para todos los usuarios" si se desea.
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
+; Pantalla de terminos y privacidad: el usuario debe aceptarla para continuar
+LicenseFile=TERMINOS_Y_PRIVACIDAD.txt
 CloseApplications=yes
 RestartApplications=no
 
@@ -40,6 +42,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "..\dist\PC_Advisor\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "TERMINOS_Y_PRIVACIDAD.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

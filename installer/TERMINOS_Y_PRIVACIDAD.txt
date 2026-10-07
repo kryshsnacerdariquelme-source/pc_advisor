@@ -1,0 +1,47 @@
+﻿PC ADVISOR - TERMINOS Y CONDICIONES DE USO Y POLITICA DE PRIVACIDAD
+====================================================================
+
+TERMINOS Y CONDICIONES DE USO
+
+1. Aceptacion
+Al instalar o usar PC Advisor aceptas estos terminos. Si no estas de acuerdo, no instales ni uses la aplicacion.
+
+2. Que es PC Advisor
+Es una herramienta que monitorea el rendimiento de tu computador (CPU, memoria, disco, GPU y temperatura cuando esta disponible), muestra un puntaje de salud, genera recomendaciones y permite exportar reportes en PDF.
+
+3. Uso permitido
+Puedes usar la aplicacion de forma personal, educativa o interna. No puedes usarla para fines ilegales ni intentar alterarla para danar otros equipos o sistemas.
+
+4. Las recomendaciones son orientativas
+El puntaje, los diagnosticos y las recomendaciones son informativos y se calculan a partir de lecturas del equipo, que pueden ser imprecisas o no estar disponibles. No reemplazan la revision de un tecnico profesional. Las decisiones que tomes sobre tu equipo son tu responsabilidad.
+
+5. Sin garantia y limitacion de responsabilidad
+La aplicacion se entrega "tal como esta", sin garantias de funcionamiento continuo ni libre de errores. En la medida permitida por la ley aplicable, los desarrolladores no responden por danos, perdida de datos o fallas del equipo derivados del uso de la aplicacion.
+
+6. Propiedad y software de terceros
+PC Advisor y su codigo pertenecen a sus desarrolladores. Algunas funciones pueden apoyarse en software de terceros (por ejemplo, Libre Hardware Monitor para las temperaturas), que se rige por sus propias licencias y que instalas bajo tu responsabilidad.
+
+7. Cambios
+Estos terminos pueden actualizarse en nuevas versiones de la aplicacion.
+
+
+POLITICA DE PRIVACIDAD
+
+1. Que datos usa la aplicacion
+- Lecturas de rendimiento: uso de CPU, memoria, disco y GPU, y temperatura cuando esta disponible.
+- Caracteristicas del equipo: fabricante y modelo, sistema operativo, modelo de CPU, memoria y disco total, placa madre, version de BIOS y GPU.
+- Las recomendaciones generadas, con su fecha y estado.
+
+2. Donde se guardan
+Solo en tu computador, en la carpeta %LOCALAPPDATA%\PC Advisor\data (una base de datos y un archivo de registro). El informe en PDF se crea en tu equipo y solo sale de el si tu lo compartes.
+
+3. Lo que NO hace
+- No envia tus datos a internet ni a terceros.
+- No requiere cuenta ni registro.
+- No recopila tu nombre, correo ni otros datos personales.
+
+4. Control sobre tus datos
+Al desinstalar, el desinstalador te pregunta si quieres borrar tambien el historial y los datos. Tambien puedes borrar manualmente la carpeta indicada arriba en cualquier momento.
+
+5. Cambios y consultas
+Esta politica puede actualizarse en nuevas versiones. Para consultas, contacta a la persona o equipo que te entrego la aplicacion.
